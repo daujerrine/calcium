@@ -6,20 +6,20 @@
 
 int main()
 {
-    ca_stack *a = Ca_StackInit(TESTSIZE);
-    CA_REAL dummy;
+    CaStack *a = Ca_StackInit(TESTSIZE);
+    CaReal dummy;
     
     for(size_t i = 0; i < 100; ++i)
-        Ca_StackPush(a, i);
+        ca_stack_push(a, i);
 
-    assert(Ca_StackPush(a, 1) == CA_ERROR_STACK_FULL);
+    assert(ca_stack_push(a, 1) == CA_ERROR_STACK_FULL);
 
     for(size_t i = 0; i < 100; ++i)
-        Ca_StackPop(a, &dummy);
+        ca_stack_pop(a, &dummy);
     
-    assert(Ca_StackPop(a, &dummy) == CA_ERROR_STACK_EMPTY);
+    assert(ca_stack_pop(a, &dummy) == CA_ERROR_STACK_EMPTY);
 
-    Ca_StackFree(a);
+    ca_stack_free(a);
     printf("Test Passed.\n");
 
     return 0;

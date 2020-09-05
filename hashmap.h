@@ -19,9 +19,9 @@
 /// Returns the offset of the hashtable array for a given letter. Returns -1 if
 /// letter is out of bounds.
 /// Refer to the implementation details for more information.
-#define CA_KEYINDEX(x) (((x) >= 'A' && (x) <= 'Z') ? ((x) - 'A') : \
-                       ((x) >= 'a' && (x) <= 'z') ? ((x) - 'a') : \
-                       ((x) == '_') ? (CaHashKey_SIZE - 1) : -1)
+#define CA_HASH_KEY_INDEX(x) (((x) >= 'A' && (x) <= 'Z') ? ((x) - 'A') : \
+                             ((x) >= 'a' && (x) <= 'z') ? ((x) - 'a') : \
+                             ((x) == '_') ? (Ca_HASH_SIZE - 1) : -1)
 
 /// The maximum size of a hashtable key.
 #define CA_HASH_KEY_SIZE 31
@@ -43,7 +43,7 @@ struct CaHashNode {
 };
 
 /// Defines a hashmap/hashtable
-typedef CaHashNode** CaHash;
+typedef CaHashNode **CaHash;
 
 /**
  * \brief Initialises a hash table.

@@ -10,16 +10,16 @@
 
 /// Datatype for error codes.
 typedef enum CaError {
-    // Actual Errors
-    CA_ERROR_HASH_INVALID_KEY = -10000,
+    /* Actual Errors */
+    CA_ERROR_HASH_INVALID_KEY = -0x1000,
     CA_ERROR_HASH_NOTFOUND,
-    
-    CA_ERROR_OK = 1,
-    
-    // Info Errors
     CA_ERROR_STACK_FULL,
     CA_ERROR_STACK_EMPTY,
-    CA_ERROR_HASH_NEW,
+    
+    CA_ERROR_OK = 0,
+
+    /* Info Errors */
+    CA_ERROR_HASH_NEW = 0x1000,
     CA_ERROR_HASH_EXISTING,
 } CaError;
 

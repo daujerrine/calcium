@@ -13,6 +13,8 @@
  * y ...
  * z ...
  * _ ...
+ *
+ * On getting a hit, the hit is put at the start of the linked list.
  */
 
 CaHash ca_hash_init()
@@ -59,10 +61,10 @@ void ca_hash_free(CaHash map)
 CaError ca_hash_set(CaHash map, CaHashKey key, CaSize size, CaType type,
                     void *data)
 {
-    CaSize index = CA_KEYINDEX(key[0]);
+    CaSize index = CA_HASH_KEY_INDEX(key[0]);
     CaHashNode *k = map[index];
     
-    if (size <= 0 || CA_KEYINDEX(key[0]) < 0)
+    if (size <= 0 || CA_HASH_KEY_INDEX(key[0]) < 0)
         return CA_ERROR_HASH_INVALID_KEY;
 
     if (map[index] == NULL) {
@@ -92,11 +94,11 @@ CaError ca_hash_set(CaHash map, CaHashKey key, CaSize size, CaType type,
 // TODO Replace h by CaVar
 CaError ca_hash_get(CaHash map, CaHashKey key, CaSize size, CaHashNode **h)
 {
-    CaSize index = CA_KEYINDEX(key[0]);
+    CaSize index = CA_HASH_KEY_INDEX(key[0]);
     size = size > CA_HASH_KEY_SIZE ? CA_HASH_KEY_SIZE : size;
     *h =  map[index];
     
-    if ((size <= 0) || CA_KEYINDEX(key[0]) < 0) {
+    if ((size <= 0) || CA_HASH_KEY_INDEX(key[0]) < 0) {
         return CA_ERROR_HASH_INVALID_KEY;
     }
     CA_DBG_PLN

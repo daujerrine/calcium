@@ -1,9 +1,19 @@
 #include "eval.h"
 
+#define IN_RANGE(x, l, h) (((x) >= (l)) && ((x) <= (h)))
+#define IS_ALPHA(x)  (IN_RANGE((x), 0x41, 0x5A) ||
+                      IN_RANGE((x), 0x61, 0x7A))
+#define IS_NUMBER(x) (IN_RANGE((x), 0x30, 0x39))
+#define IS_SYMBOL(x) (IN_RANGE((x), 0x21, 0x2F) ||
+                      IN_RANGE((x), 0x3A, 0x40) ||
+                      IN_RANGE((x), 0x5B, 0x60) ||
+                      IN_RANGE((x), 0x7B, 0x7E))
+
+
 ca_expr *ca_tokenize(const char *data)
 {
     ca_expr *e = calloc(1, sizeof(ca_expr));
-    if(!e)
+    if (!e)
         return NULL;
     e->data = data;
     e->pos = 0;
@@ -36,9 +46,10 @@ ca_context *ca_context_init()
 {
     ca_context *c = malloc(sizeof(ca_context));
     c->flags = 0;
-    c->env  = Ca_HashInit();
+    c->env  = ca_hash_init();
     c->oper = ca_stack_init(CA_STACK_SIZE);
     c->expr = ca_stack_init(CA_STACK_SIZE);
+    return c;
 }
 
 /**
@@ -47,7 +58,19 @@ ca_context *ca_context_init()
  * \param s The expression.
  * \return An error code.
  */
-CaError ca_eval(ca_context *c)
+CaError ca_eval(ca_context *c, char *buf, int buf_size)
 {
-    
+    buf
+    for (int i = 0; i < buf_size; i++) {
+        switch (buf) {
+        case ' ':
+        case '\t':
+        case '\n':
+            if (c->scope != CA_SCOPE_STRING)
+                continue;
+        }
+
+        if 
+        
+    }
 }

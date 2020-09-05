@@ -1,21 +1,21 @@
 # Calcium Makefile
 # See COPYING for licensing details.
 
-CC = gcc
-CFLAGS = -Wall
-LDFLAGS = -lm
-EXEC = calcium
+CC      := gcc
+CFLAGS  := -Wall
+LDFLAGS := -lm
+EXEC    := calcium
 
-TEST_DIR = test/
+TEST_DIR := test/
 
-OBJS = eval.o        \
-       hashmap.o     \
-       interpreter.o \
-       main.o        \
-       stack.o
+OBJS := eval.o        \
+        hashmap.o     \
+        interpreter.o \
+        main.o        \
+        stack.o
 
-TEST_OBJS = test_stack.o \
-			test_hash.o
+TEST_OBJS := test_stack.o \
+             test_hash.o
 
 .PHONY: all install main clean test test-build
 

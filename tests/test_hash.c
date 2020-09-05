@@ -7,15 +7,15 @@
 int main()
 {
     int g = 3;
-    ca_hash k = Ca_HashInit();
+    ca_hash k = ca_hash_init();
     ca_hash_node *p;
     assert(k);
-    assert(Ca_HashSet(k, "aaa", 3, CA_TYPE_INT, &g) == CA_ERROR_HASH_NEW);
-    assert(Ca_HashGet(k, "aaa", 3, &p) == CA_ERROR_OK);
+    assert(ca_hash_set(k, "aaa", 3, CA_TYPE_INT, &g) == CA_ERROR_HASH_NEW);
+    assert(ca_hash_get(k, "aaa", 3, &p) == CA_ERROR_OK);
     assert((*((int *) p->data)) == 3);
-    assert(Ca_HashGet(k, "bbb", 3, &p) == CA_ERROR_HASH_NOTFOUND);
-    Ca_HashPrint(k);
-    Ca_HashFree(k);
+    assert(ca_hash_get(k, "bbb", 3, &p) == CA_ERROR_HASH_NOTFOUND);
+    ca_hash_print(k);
+    ca_hash_free(k);
     printf("Test Passed.\n");
 
     return 0;

@@ -12,39 +12,43 @@
 
 /// Default integer datatype.
 typedef int64_t CaInt;
+
 /// Default unsigned integer datatype.
 typedef uint64_t CaUint;
+
 /// Datatype for all real numbers.
 typedef long double CaReal;
+
 /// Default datatupe for any sort of "size" quantity.
 typedef size_t CaSize;
+
 /// Datatype for hashtable keys.
 typedef const uint8_t * CaHashKey;
 
 /// Defines types that are used by the interpreter.
 typedef enum CaType {
-    CaType_UNKNOWN = 0,
-    CaType_REAL,
-    CaType_INT,
-    CaType_WORD,
-    CaType_KEY,
-    CaType_OPER
+    CA_TYPE_UNKNOWN = 0,
+    CA_TYPE_REAL,
+    CA_TYPE_INT,
+    CA_TYPE_WORD,
+    CA_TYPE_KEY,
+    CA_TYPE_OPER
 } CaType;
 
-typedef enum CaVar_TYPE {
-    CaVar_TYPE_INT = 0,
-    CaVar_TYPE_REAL,
-    CaVar_TYPE_FUNC
-} CaVar_TYPE
+typedef enum CaVarType {
+    CA_VAR_TYPE_INT = 0,
+    CA_VAR_TYPE_REAL,
+    CA_VAR_TYPE_FUNC
+} CaVarTYPE
 
-typedef struct ca_var {
+typedef struct CaVar {
     void *data;
     CaType type;
-} ca_var;
+} CaVar;
 
-typedef union ca_result {
-    CA_INT i;
+typedef union CaResult {
+    CaInt i;
     CaReal r;
-}
+} CaResult;
 
 #endif

@@ -6,8 +6,8 @@
  */
 
 
-#ifndef CALCIUM_H
-#define CALCIUM_H
+#ifndef _CALCIUM_H
+#define _CALCIUM_H
 
 #include "types.h"
 #include "debug.h"
