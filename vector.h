@@ -15,3 +15,26 @@
  * You should have received a copy of the GNU General Public License
  * along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
  */
+
+/**
+ * \file vector.h
+ * \author Anamitra Ghorui
+ * \brief Vector array implementation
+ */
+
+#ifndef _CA_VECTOR_H
+#define _CA_VECTOR_H
+
+
+/*
+ * The size of a vector increases by two everytime size limit is reached.
+ */
+
+typedef struct CaVector {
+    size_t elem_size;
+    size_t size;
+    size_t top;
+    void *buf;
+] CaVector;
+
+#endif

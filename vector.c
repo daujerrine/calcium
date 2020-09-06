@@ -15,3 +15,15 @@
  * You should have received a copy of the GNU General Public License
  * along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
  */
+
+/**
+ * \file types.h
+ * \author Anamitra Ghorui
+ * \brief Vector array implementation
+ *
+ */
+
+#ifndef _CA_TYPES_H
+#define _CA_TYPES_H
+
+#endif
