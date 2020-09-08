@@ -37,7 +37,7 @@
 
 CaHash ca_hash_init()
 {
-    CaHash h = calloc(CA_HASH_SIZE, sizeof(CaHashNode *));
+    CaHash h = ca_mallocarray(CA_HASH_SIZE, sizeof(CaHashNode *));
     return h;
 }
 
@@ -58,9 +58,9 @@ CaHashNode *ca_hash_node_init(CaHashKey key, CaSize size, CaType type,
 
 void ca_hash_node_free(CaHashNode *h)
 {
-    free((char *) h->key);
+    ca_freep((&((char *) h->key));
     // TODO Deallocate data.
-    free(h);
+    ca_freep(&h);
 }
 
 void ca_hash_free(CaHash map)

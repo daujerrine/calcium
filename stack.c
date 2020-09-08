@@ -17,12 +17,13 @@
  */
 
 #include "calcium.h"
+#include "mem.h"
 #include <stdio.h>
 
 CaStack *ca_stack_init(size_t size)
 {
-    CaStack *s = malloc(sizeof(CaStack));
-    s->data = malloc(size * sizeof(CaReal));
+    CaStack *s = ca_malloc(sizeof(CaStack));
+    s->data = ca_malloc(size * sizeof(CaReal));
     s->top = 0;
     s->size = size;
     return s;

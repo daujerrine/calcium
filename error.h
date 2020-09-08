@@ -30,7 +30,7 @@
  * Actual errors always will have a less than 0 value
  * Success is always 0
  * Private errors range from 0x1 to 0xFFF
- * Info errors start from 0x1000
+ * Info errors start from 0x1000.
  */
 
 /// Datatype for error codes.
