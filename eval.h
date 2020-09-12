@@ -13,7 +13,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
+ * along with Calcium.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 /**
@@ -38,7 +38,7 @@ typedef struct CaExpr CaExpr;
 
 struct CaExpr {
     CaSize pos;
-    const char *data;
+    const char *buf;
 };
 
 /// The "context" the evaluator runs on.

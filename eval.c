@@ -13,7 +13,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
+ * along with Calcium.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #include "eval.h"
@@ -28,12 +28,12 @@
                       IN_RANGE((x), 0x7B, 0x7E))
 
 
-ca_expr *ca_tokenize(const char *data)
+CaExpr *ca_tokenize(const char *data)
 {
     ca_expr *e = calloc(1, sizeof(ca_expr));
     if (!e)
         return NULL;
-    e->data = data;
+    e->buf = data;
     e->pos = 0;
 }
 
@@ -45,11 +45,11 @@ ca_expr *ca_tokenize(const char *data)
 * \param end The end of the token. (inclusive)
 * \return An error code.
 */
-CaError ca_next_token(ca_expr *expr, CaType *guess, CaSize *start, 
-                      CaSize *end)
+CaError ca_next_token(CaExpr *expr, CaType *guess, CaSize *start, 
+                      CaSize *length)
 {
     char loop = 1;
-    guess = CA_TYPE_
+    guess = CA_TYPE_UNKNOWN;
     while (loop) {
         (expr->data[expr->pos])
     }

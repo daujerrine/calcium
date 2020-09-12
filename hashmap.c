@@ -13,7 +13,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
+ * along with Calcium.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #include "hashmap.h"
@@ -109,7 +109,6 @@ CaError ca_hash_set(CaHash map, CaHashKey key, CaSize size, CaType type,
     return CA_ERROR_HASH_NEW;
 }
 
-// TODO Replace h by CaVar
 CaError ca_hash_get(CaHash map, CaHashKey key, CaSize size, CaHashNode **h)
 {
     CaSize index = CA_HASH_KEY_INDEX(key[0]);
