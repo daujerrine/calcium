@@ -44,6 +44,7 @@ struct CaExpr {
 /// The "context" the evaluator runs on.
 typedef struct CaContext {
     uint8_t flags;
+    uint16_t level;
     CaHash env;
     CaStack *oper;
     CaStack *expr;

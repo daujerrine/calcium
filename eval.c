@@ -76,7 +76,7 @@ ca_context *ca_context_init()
  * \param s The expression.
  * \return An error code.
  */
-CaError ca_eval(ca_context *c, char *buf, int buf_size)
+CaError ca_eval(CaContext *c, char *buf, int buf_size)
 {
     buf
     for (int i = 0; i < buf_size; i++) {
@@ -86,9 +86,17 @@ CaError ca_eval(ca_context *c, char *buf, int buf_size)
         case '\n':
             if (c->scope != CA_SCOPE_STRING)
                 continue;
-        }
 
-        if 
-        
+        case ')':
+            if (!c->level)
+                return CA_ERROR_EVAL_NO_OPENING_PARANTHESIS;
+
+        case '('
+            c->level++;
+            
+        }
     }
+
+    if (c->level)
+        return CA_ERROR_EVAL_NO_CLOSING_PARANTHESIS;
 }
