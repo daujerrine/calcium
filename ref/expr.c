@@ -4,18 +4,19 @@
 
 #define CIN_RANGE(x, l, h) (((x) >= (l)) && ((x) <= (h)))
 #define CIS_ALPHA(x)  (CIN_RANGE(x, 0x41, 0x5A) || \
-                      CIN_RANGE(x, 0x61, 0x7A))
+                       CIN_RANGE(x, 0x61, 0x7A))
 #define CIS_NUMBER(x) (CIN_RANGE(x, 0x30, 0x39)) 
 #define CIS_SYMBOL(x) (CIN_RANGE(x, 0x21, 0x2F) || \
-                      CIN_RANGE(x, 0x3A, 0x40) || \
-                      CIN_RANGE(x, 0x5B, 0x60) || \
-                      CIN_RANGE(x, 0x7B, 0x7E)) \
+                       CIN_RANGE(x, 0x3A, 0x40) || \
+                       CIN_RANGE(x, 0x5B, 0x60) || \
+                       CIN_RANGE(x, 0x7B, 0x7E)) \
 
 typedef enum CGuess {
     GUESS_UNKNOWN = 0,
     GUESS_ERROR,
     GUESS_NEED_MORE_DATA,
-    GUESS_NUMBER,
+    GUESS_INTEGER,
+    GUESS_FLOAT,
     GUESS_OPERATOR,
     GUESS_NOUN,
     GUESS_STRING
@@ -25,7 +26,8 @@ char *guess_strings[] = {
     [GUESS_UNKNOWN]        = "unknown",
     [GUESS_ERROR]          = "error",
     [GUESS_NEED_MORE_DATA] = "incomplete",
-    [GUESS_NUMBER]         = "num",
+    [GUESS_INTEGER]        = "int",
+    [GUESS_FLOAT]          = "float",
     [GUESS_OPERATOR]       = "oper",
     [GUESS_NOUN]           = "noun",
     [GUESS_STRING]         = "string"
@@ -35,8 +37,7 @@ char *nextchunk(char *c, int *size, CGuess *guess)
 {
     *guess = GUESS_UNKNOWN;
     char *start = NULL;
-    int delimited_chunk = 0;
-
+    int float_hint = 0;
     while (*c) {
         switch (*c) {
         case ' ': case '\n': case '\t':
@@ -58,11 +59,14 @@ char *nextchunk(char *c, int *size, CGuess *guess)
         }
 
         if (CIS_SYMBOL(*c)) {
-            if (*guess && *guess != GUESS_OPERATOR)
+            if (*c == '.' && *guess == GUESS_INTEGER) {
+                float_hint = 1;
+            } else if (*guess && *guess != GUESS_OPERATOR) {
                 goto end;
-            else if (!*guess)
+            } else if (!*guess) {
                 start = c;
-            *guess = GUESS_OPERATOR;
+                *guess = GUESS_OPERATOR;
+            }
         } else if (CIS_ALPHA(*c)) {
             if (*guess && *guess != GUESS_NOUN)
                 goto end;
@@ -70,11 +74,14 @@ char *nextchunk(char *c, int *size, CGuess *guess)
                 start = c;
             *guess = GUESS_NOUN;
         } else if (CIS_NUMBER(*c)) {
-            if (*guess && *guess != GUESS_NUMBER)
+            if (float_hint && *guess == GUESS_INTEGER) {
+                *guess = GUESS_FLOAT;
+            } else if (*guess && (*guess != GUESS_INTEGER && *guess != GUESS_FLOAT)) {
                 goto end;
-            else if (!*guess)
+            } else if (*guess == GUESS_UNKNOWN) {
                 start = c;
-            *guess = GUESS_NUMBER;
+                *guess = GUESS_INTEGER;
+            }
         }
 next:
         c++;
@@ -98,8 +105,8 @@ int main(int argc, char **argv)
 
     printf("START\tEND\tGUESS\tVALUE\n");
     while ((start = nextchunk(curr, &size, &guess)) != NULL) {
-        printf("%d\t%d\t%s\t", (int) (start - buf),\
-                               (int) (start - buf) + size,\
+        printf("%d\t%d\t%s\t", (int) (start - buf),
+                               (int) (start - buf) + size,
                                guess_strings[guess]);
         fwrite(start, 1, size, f_out);
         printf("\n");
