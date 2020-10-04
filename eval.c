@@ -93,7 +93,6 @@ CaError ca_eval(CaContext *c, char *buf, int buf_size)
 
         case '('
             c->level++;
-            
         }
     }
 

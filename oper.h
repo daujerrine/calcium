@@ -26,6 +26,12 @@
 
 #define CA_MAX_OPER_LEN 3
 
+
+/*
+ * Only the following symbols ca be used in operator expressions:
+ * '+' '-' '*' '/' '>' '<' '.' '!' '@' '#' '$' '%' '^' '&' '|' '~'
+ */
+
 typedef enum CaOperatorProperties {
     CA_ASSOC_LEFT = 0,
     CA_ASSOC_RIGHT,
