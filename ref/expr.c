@@ -17,7 +17,8 @@ typedef enum CGuess {
     GUESS_NEED_MORE_DATA,
     GUESS_NUMBER,
     GUESS_OPERATOR,
-    GUESS_NOUN
+    GUESS_NOUN,
+    GUESS_STRING
 } CGuess;
 
 char *guess_strings[] = {
@@ -26,23 +27,34 @@ char *guess_strings[] = {
     [GUESS_NEED_MORE_DATA] = "incomplete",
     [GUESS_NUMBER]         = "num",
     [GUESS_OPERATOR]       = "oper",
-    [GUESS_NOUN]           = "noun"
+    [GUESS_NOUN]           = "noun",
+    [GUESS_STRING]         = "string"
 };
 
 char *nextchunk(char *c, int *size, CGuess *guess)
 {
     *guess = GUESS_UNKNOWN;
     char *start = NULL;
-    
+    int delimited_chunk = 0;
+
     while (*c) {
         switch (*c) {
-        case '\0':
-            goto end;
-
         case ' ': case '\n': case '\t':
             if (*guess)
                 goto end;
             goto next;
+
+        case '"':
+            start = c;
+            while ((*++c) && *c != '"');
+            if (*c != '"') {
+                *guess = GUESS_ERROR;
+                goto end;
+            } else {
+                *guess = GUESS_STRING;
+                c++;
+                goto end;
+            }
         }
 
         if (CIS_SYMBOL(*c)) {
@@ -50,14 +62,12 @@ char *nextchunk(char *c, int *size, CGuess *guess)
                 goto end;
             else if (!*guess)
                 start = c;
-            start = c;
             *guess = GUESS_OPERATOR;
         } else if (CIS_ALPHA(*c)) {
             if (*guess && *guess != GUESS_NOUN)
                 goto end;
             else if (!*guess)
                 start = c;
-            start = c;
             *guess = GUESS_NOUN;
         } else if (CIS_NUMBER(*c)) {
             if (*guess && *guess != GUESS_NUMBER)
