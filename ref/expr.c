@@ -1,15 +1,26 @@
+/*
+ * Copyright (c) 2020 Anamitra Ghorui
+ * This file is part of Calcium. See Calcium's licensing information for
+ * details.
+ */
+
+/*
+ *
+ */
+
 #include <stdio.h>
 
 #define MAXBUF 4096
 
 #define CIN_RANGE(x, l, h) (((x) >= (l)) && ((x) <= (h)))
-#define CIS_ALPHA(x)  (CIN_RANGE(x, 0x41, 0x5A) || \
-                       CIN_RANGE(x, 0x61, 0x7A))
-#define CIS_NUMBER(x) (CIN_RANGE(x, 0x30, 0x39)) 
-#define CIS_SYMBOL(x) (CIN_RANGE(x, 0x21, 0x2F) || \
-                       CIN_RANGE(x, 0x3A, 0x40) || \
-                       CIN_RANGE(x, 0x5B, 0x60) || \
-                       CIN_RANGE(x, 0x7B, 0x7E)) \
+#define CIS_ALPHA(x)  (CIN_RANGE((x), 0x41, 0x5A) || \
+                       CIN_RANGE((x), 0x61, 0x7A) || \
+                       ((x) == '_'))
+#define CIS_NUMBER(x) (CIN_RANGE((x), 0x30, 0x39)) 
+#define CIS_SYMBOL(x) (CIN_RANGE((x), 0x21, 0x2F) || \
+                       CIN_RANGE((x), 0x3A, 0x40) || \
+                       CIN_RANGE((x), 0x5B, 0x5E) || \
+                       CIN_RANGE((x), 0x7B, 0x7E)) \
 
 typedef enum CGuess {
     GUESS_UNKNOWN = 0,
@@ -21,6 +32,22 @@ typedef enum CGuess {
     GUESS_NOUN,
     GUESS_STRING
 } CGuess;
+
+char oper_strings[][5] = {
+    ['('] = { 0 },
+    [')'] = { 0 },
+    ['['] = { 0 },
+    [']'] = { 0 },
+    ['+'] = { '+', '=', 0 },
+    ['-'] = { '-', '=', 0 },
+    ['*'] = { '*', '=', 0 },
+    ['/'] = { '/', '=', 0 },
+    ['>'] = { '=', '>', 0 },
+    ['<'] = { '=', '<', 0 },
+    ['='] = { '=', 0 },
+    ['%'] = { '=', 0 },
+    
+};
 
 char *guess_strings[] = {
     [GUESS_UNKNOWN]        = "unknown",
@@ -35,9 +62,13 @@ char *guess_strings[] = {
 
 char *nextchunk(char *c, int *size, CGuess *guess)
 {
-    *guess = GUESS_UNKNOWN;
-    char *start = NULL;
+    *guess         = GUESS_UNKNOWN;
+    char *start    = NULL;
     int float_hint = 0;
+    char delimiter = '\0';
+    char curr_oper = '\0';
+    int i;
+
     while (*c) {
         switch (*c) {
         case ' ': case '\n': case '\t':
@@ -46,9 +77,11 @@ char *nextchunk(char *c, int *size, CGuess *guess)
             goto next;
 
         case '"':
+        case '\'':
+            delimiter = *c;
             start = c;
-            while ((*++c) && *c != '"');
-            if (*c != '"') {
+            while ((*++c) && *c != delimiter);
+            if (*c != delimiter) {
                 *guess = GUESS_ERROR;
                 goto end;
             } else {
@@ -58,24 +91,35 @@ char *nextchunk(char *c, int *size, CGuess *guess)
             }
         }
 
-        if (CIS_SYMBOL(*c)) {
-            if (*c == '.' && *guess == GUESS_INTEGER) {
-                float_hint = 1;
-            } else if (*guess && *guess != GUESS_OPERATOR) {
+        if (CIS_SYMBOL(*c)) { // non-alphanumeric
+            if (*c == '.' && *guess == GUESS_INTEGER) { // Is this possibly a float?
+                float_hint = 1; // If so, store this "hinting"
+            } else if (*guess && *guess == GUESS_OPERATOR) {
+                for (i = 0; oper_strings[curr_oper][i]; i++) {
+                    if (oper_strings[curr_oper][i] == *c) {
+                        c++;
+                        goto end;
+                    }
+                }
+                if (!oper_strings[curr_oper][i]) {
+                    goto end;
+                }
+            } else if (*guess && *guess != GUESS_OPERATOR) { // Did we just read an entire chunk?
                 goto end;
-            } else if (!*guess) {
+            } else if (!*guess) { // Is this the continuation or the start of a chunk?
                 start = c;
+                curr_oper = *c;
                 *guess = GUESS_OPERATOR;
             }
-        } else if (CIS_ALPHA(*c)) {
+        } else if (CIS_ALPHA(*c)) { // alphabetical
             if (*guess && *guess != GUESS_NOUN)
                 goto end;
             else if (!*guess)
                 start = c;
             *guess = GUESS_NOUN;
-        } else if (CIS_NUMBER(*c)) {
-            if (float_hint && *guess == GUESS_INTEGER) {
-                *guess = GUESS_FLOAT;
+        } else if (CIS_NUMBER(*c)) {  // numeric
+            if (float_hint && *guess == GUESS_INTEGER) { // were we hinted about a float?
+                *guess = GUESS_FLOAT; // yeah, this is most likely a float
             } else if (*guess && (*guess != GUESS_INTEGER && *guess != GUESS_FLOAT)) {
                 goto end;
             } else if (*guess == GUESS_UNKNOWN) {
