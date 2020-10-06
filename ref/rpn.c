@@ -5,7 +5,7 @@
  */
 
 /*
- * Expression Tokeniser draft 
+ * Reverse polish expression calculator
  */
 
 #include <stdio.h>
@@ -20,7 +20,7 @@
 #define CIS_SYMBOL(x) (CIN_RANGE((x), 0x21, 0x2F) || \
                        CIN_RANGE((x), 0x3A, 0x40) || \
                        CIN_RANGE((x), 0x5B, 0x5E) || \
-                       CIN_RANGE((x), 0x7B, 0x7E)) \
+                       CIN_RANGE((x), 0x7B, 0x7E))
 
 typedef enum CGuess {
     GUESS_UNKNOWN = 0,
@@ -33,21 +33,22 @@ typedef enum CGuess {
     GUESS_STRING
 } CGuess;
 
-char oper_chars[][5] = {
-    ['('] = { 0 },
-    [')'] = { 0 },
-    ['['] = { 0 },
-    [']'] = { 0 },
-    ['+'] = { '+', '=', 0 },
-    ['-'] = { '-', '=', 0 },
-    ['*'] = { '*', '=', 0 },
-    ['/'] = { '/', '=', 0 },
-    ['>'] = { '=', '>', 0 },
-    ['<'] = { '=', '<', 0 },
-    ['='] = { '=', 0 },
-    ['%'] = { '=', 0 },
-    
-};
+
+typedef struct Stack {
+    int stack[MAXBUF];
+    int top;
+} Stack;
+
+/*
+typedef struct EvalContext {
+    Stack s;
+} EvalContext;
+
+typedef struct Function {
+    char *id;
+    void (*func)(EvalContext *e);
+} Function;
+*/
 
 char *guess_strings[] = {
     [GUESS_UNKNOWN]        = "unknown",
@@ -59,6 +60,23 @@ char *guess_strings[] = {
     [GUESS_NOUN]           = "noun",
     [GUESS_STRING]         = "string"
 };
+
+char oper_chars[][5] = {
+    ['('] = { 0 },
+    [')'] = { 0 },
+    ['['] = { 0 },
+    [']'] = { 0 },
+    ['+'] = { '+', 0 },
+    ['-'] = { '-', 0 },
+    ['*'] = { 0 },
+    ['/'] = { 0 },
+    ['>'] = { 0 },
+    ['<'] = { 0 },
+    ['='] = { 0 },
+    ['%'] = { 0 }
+};
+
+int operate(int a, int b, char oper[5]) {
 
 char *nextchunk(char *c, int *size, CGuess *guess)
 {
@@ -134,10 +152,7 @@ end:
     return start;
 }
 
-int main(int argc, char **argv)
-{
-    FILE *f_in  = stdin;
-    FILE *f_out = stdout;
+void eval(char *expr) {
     char buf[MAXBUF];
     char *start, *curr = buf;
 
@@ -145,7 +160,6 @@ int main(int argc, char **argv)
     int size;
     fgets(buf, MAXBUF, f_in);
 
-    printf("START\tEND\tGUESS\tVALUE\n");
     while ((start = nextchunk(curr, &size, &guess)) != NULL) {
         printf("%d\t%d\t%s\t", (int) (start - buf),
                                (int) (start - buf) + size,
@@ -153,6 +167,22 @@ int main(int argc, char **argv)
         fwrite(start, 1, size, f_out);
         printf("\n");
         curr = start + size;
+
+
+        switch (guess) {
+            case GUESS_NOUN:
+            case GUESS_STRING:
+                printf("%s not implemented\n");
+                return;
+        }
     }
+}
+
+int main(int argc, char **argv)
+{
+    FILE *f_in  = stdin;
+    FILE *f_out = stdout;
+
+    
     return 0;
 }
