@@ -9,6 +9,9 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
 
 #define MAXBUF 4096
 
@@ -35,20 +38,42 @@ typedef enum CGuess {
 
 
 typedef struct Stack {
-    int stack[MAXBUF];
+    int data[MAXBUF];
     int top;
 } Stack;
 
-/*
+static inline int stack_pop(Stack *s, int *value)
+{
+    if (s->top == 0)
+        return -1;
+
+    *value = s->data[--s->top];
+
+    return 0;
+}
+
+static inline int stack_push(Stack *s, int value)
+{
+    if (s->top == MAXBUF + 1)
+        return -1;
+
+    s->data[s->top++] = value;
+
+    return 0;
+}
+
+
 typedef struct EvalContext {
     Stack s;
+    FILE *f_out;
+    FILE *f_in;
 } EvalContext;
 
 typedef struct Function {
     char *id;
     void (*func)(EvalContext *e);
 } Function;
-*/
+
 
 char *guess_strings[] = {
     [GUESS_UNKNOWN]        = "unknown",
@@ -76,7 +101,46 @@ char oper_chars[][5] = {
     ['%'] = { 0 }
 };
 
-int operate(int a, int b, char oper[5]) {
+int operate(Stack *s, char *oper)
+{
+    int result;
+    int a, b;
+
+    if (stack_pop(s, &a) < 0 || stack_pop(s, &b) < 0)
+        return -1; // Stack underflow
+
+    switch (oper[0]) {
+    case '+':
+        result = a + b;
+        break;
+
+    case '-':
+        result = a - b;
+        break;
+
+    case '*':
+        result = a * b;
+        break;
+
+    case '/':
+        result = a / b;
+        break;
+
+    case '>':
+        result = a > b;
+        break;
+
+    case '<':
+        result = a < b;
+        break;
+    
+    default:
+        return -1;
+    }
+
+    stack_push(s, result);
+    return 0;
+}
 
 char *nextchunk(char *c, int *size, CGuess *guess)
 {
@@ -113,12 +177,12 @@ char *nextchunk(char *c, int *size, CGuess *guess)
             if (*c == '.' && *guess == GUESS_INTEGER) { // Is this possibly a float?
                 float_hint = 1; // If so, store this "hinting"
             } else if (*guess && *guess == GUESS_OPERATOR) {
-                for (i = 0; oper_strings[curr_oper][i]; i++)
-                    if (oper_strings[curr_oper][i] == *c) {
+                for (i = 0; oper_chars[curr_oper][i]; i++)
+                    if (oper_chars[curr_oper][i] == *c) {
                         c++;
                         goto end;
                     }
-                if (!oper_strings[curr_oper][i])
+                if (!oper_chars[curr_oper][i])
                     goto end;
             } else if (*guess && *guess != GUESS_OPERATOR) { // Did we just read an entire chunk?
                 goto end;
@@ -152,19 +216,29 @@ end:
     return start;
 }
 
-void eval(char *expr) {
+void eval_init(EvalContext *e, FILE *f_in, FILE *f_out)
+{
+    e->f_in  = f_in;
+    e->f_out = f_out;
+    e->s.top = 0;
+}
+
+void eval(EvalContext *e)
+{
     char buf[MAXBUF];
     char *start, *curr = buf;
-
     CGuess guess;
     int size;
-    fgets(buf, MAXBUF, f_in);
+    fgets(buf, MAXBUF, e->f_in);
+
+    int numi;
+    double numf;
 
     while ((start = nextchunk(curr, &size, &guess)) != NULL) {
         printf("%d\t%d\t%s\t", (int) (start - buf),
                                (int) (start - buf) + size,
                                guess_strings[guess]);
-        fwrite(start, 1, size, f_out);
+        fwrite(start, 1, size, e->f_out);
         printf("\n");
         curr = start + size;
 
@@ -172,8 +246,27 @@ void eval(char *expr) {
         switch (guess) {
             case GUESS_NOUN:
             case GUESS_STRING:
-                printf("%s not implemented\n");
+                printf("%s not implemented\n", guess_strings[guess]);
                 return;
+
+            case GUESS_OPERATOR:
+                operate(&e->s, start);
+                break;
+
+            case GUESS_INTEGER:
+                numi = atoi(start);
+                if (stack_push(&e->s, numi) < 0)
+                    printf("stack overflow\n");
+                break;
+
+            case GUESS_FLOAT:
+                numf = atof(start);
+                if (stack_push(&e->s, (int) numf) < 0)
+                    printf("stack overflow\n");
+                break;
+
+            default:
+                printf("Erroneous input\n");
         }
     }
 }
@@ -182,7 +275,12 @@ int main(int argc, char **argv)
 {
     FILE *f_in  = stdin;
     FILE *f_out = stdout;
-
+    EvalContext e;
     
+    eval_init(&e, f_in, f_out);
+    eval(&e);
+    for (int i = 0; i < e.s.top; i++)
+        printf("%d ", e.s.data[i]);
+    printf("\n");
     return 0;
 }
