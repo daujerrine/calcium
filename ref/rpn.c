@@ -46,7 +46,6 @@ static inline int stack_pop(Stack *s, int *value)
 {
     if (s->top == 0)
         return -1;
-
     *value = s->data[--s->top];
 
     return 0;
@@ -56,7 +55,6 @@ static inline int stack_push(Stack *s, int value)
 {
     if (s->top == MAXBUF + 1)
         return -1;
-
     s->data[s->top++] = value;
 
     return 0;
@@ -64,6 +62,7 @@ static inline int stack_push(Stack *s, int value)
 
 
 typedef struct EvalContext {
+    int active;
     Stack s;
     FILE *f_out;
     FILE *f_in;
@@ -74,6 +73,16 @@ typedef struct Function {
     void (*func)(EvalContext *e);
 } Function;
 
+/*
+void func_peek(EvalContext *e)
+{
+    printf("%d\n", e->s.data[e->s.top]);
+}
+
+Function func_list[] = {
+    { "peek", func_peek }
+};
+*/
 
 char *guess_strings[] = {
     [GUESS_UNKNOWN]        = "unknown",
@@ -106,9 +115,14 @@ int operate(Stack *s, char *oper)
     int result;
     int a, b;
 
-    if (stack_pop(s, &a) < 0 || stack_pop(s, &b) < 0)
+    if (stack_pop(s, &a) < 0)
         return -1; // Stack underflow
 
+    if (stack_pop(s, &b) < 0) {
+        stack_push(s, a); // Push back operand
+        return -1; // Stack underflow
+    }
+    
     switch (oper[0]) {
     case '+':
         result = a + b;
@@ -175,7 +189,7 @@ char *nextchunk(char *c, int *size, CGuess *guess)
 
         if (CIS_SYMBOL(*c)) { // non-alphanumeric
             if (*c == '.' && *guess == GUESS_INTEGER) { // Is this possibly a float?
-                float_hint = 1; // If so, store this "hinting"
+                float_hint = 1; // If so, store this "hinting."
             } else if (*guess && *guess == GUESS_OPERATOR) {
                 for (i = 0; oper_chars[curr_oper][i]; i++)
                     if (oper_chars[curr_oper][i] == *c) {
@@ -218,18 +232,17 @@ end:
 
 void eval_init(EvalContext *e, FILE *f_in, FILE *f_out)
 {
-    e->f_in  = f_in;
-    e->f_out = f_out;
-    e->s.top = 0;
+    e->active = 1;
+    e->f_in   = f_in;
+    e->f_out  = f_out;
+    e->s.top  = 0;
 }
 
-void eval(EvalContext *e)
+void eval(EvalContext *e, char *buf)
 {
-    char buf[MAXBUF];
     char *start, *curr = buf;
     CGuess guess;
     int size;
-    fgets(buf, MAXBUF, e->f_in);
 
     int numi;
     double numf;
@@ -250,7 +263,8 @@ void eval(EvalContext *e)
                 return;
 
             case GUESS_OPERATOR:
-                operate(&e->s, start);
+                if (operate(&e->s, start) < 0)
+                    printf("stack underflow\n");
                 break;
 
             case GUESS_INTEGER:
@@ -266,7 +280,7 @@ void eval(EvalContext *e)
                 break;
 
             default:
-                printf("Erroneous input\n");
+                printf("erroneous input\n");
         }
     }
 }
@@ -276,11 +290,26 @@ int main(int argc, char **argv)
     FILE *f_in  = stdin;
     FILE *f_out = stdout;
     EvalContext e;
+    char buf[MAXBUF];
     
     eval_init(&e, f_in, f_out);
-    eval(&e);
-    for (int i = 0; i < e.s.top; i++)
-        printf("%d ", e.s.data[i]);
-    printf("\n");
+
+    printf("Reverse Polish Expression Calculator\n"
+           "Enter an expression. Press CTRL + D to exit.\n\n");
+    while (e.active) {
+        printf("?> ");
+        if (!fgets(buf, MAXBUF, e.f_in)) {
+            printf("EOF\n");
+            break;
+        }
+        eval(&e, buf);
+        if (!e.s.top) {
+            printf("<empty stack>\n");
+        } else {
+            for (int i = 0; i < e.s.top; i++)
+                printf("%d ", e.s.data[i]);
+            printf("\n");
+        }
+    }
     return 0;
 }
