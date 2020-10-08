@@ -25,17 +25,7 @@
                        CIN_RANGE((x), 0x5B, 0x5E) || \
                        CIN_RANGE((x), 0x7B, 0x7E))
 
-typedef enum CGuess {
-    GUESS_UNKNOWN = 0,
-    GUESS_ERROR,
-    GUESS_NEED_MORE_DATA,
-    GUESS_INTEGER,
-    GUESS_FLOAT,
-    GUESS_OPERATOR,
-    GUESS_NOUN,
-    GUESS_STRING
-} CGuess;
-
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 typedef struct Stack {
     int data[MAXBUF];
@@ -61,6 +51,9 @@ static inline int stack_push(Stack *s, int value)
 }
 
 
+/*
+ * Context for the evaluator
+ */
 typedef struct EvalContext {
     int active;
     Stack s;
@@ -68,32 +61,74 @@ typedef struct EvalContext {
     FILE *f_in;
 } EvalContext;
 
-typedef struct Function {
-    char *id;
-    void (*func)(EvalContext *e);
-} Function;
 
 /*
-void func_peek(EvalContext *e)
+ * Stores a function and its ID
+ */
+typedef struct Function {
+    char *id;
+    int (*func)(EvalContext *e);
+} Function;
+
+
+int c_func_peek(EvalContext *e)
 {
-    printf("%d\n", e->s.data[e->s.top]);
+    if (!e->s.top)
+        eval_log("<empty stack>\n");
+    else
+        eval_log("%d\n", e->s.data[e->s.top - 1]);
+    return 0;
 }
 
-Function func_list[] = {
-    { "peek", func_peek }
-};
-*/
+int c_func_pop(EvalContext *e)
+{
+    int value;
+    return stack_pop(&e->s, &value);
+}
 
-char *guess_strings[] = {
-    [GUESS_UNKNOWN]        = "unknown",
-    [GUESS_ERROR]          = "error",
-    [GUESS_NEED_MORE_DATA] = "incomplete",
-    [GUESS_INTEGER]        = "int",
-    [GUESS_FLOAT]          = "float",
-    [GUESS_OPERATOR]       = "oper",
-    [GUESS_NOUN]           = "noun",
-    [GUESS_STRING]         = "string"
+int c_func_list(EvalContext *e)
+{
+    if (!e->s.top) {
+        eval_log(e, "<empty stack>\n");
+    } else {
+        for (int i = 0; i < e->s.top; i++)
+            eval_log("%d ", e->s.data[i]);
+        eval_log("\n");
+    }
+    return 0;
+}
+
+/*
+ * ====================================
+ * List must always be in sorted order.
+ * ====================================
+ */
+
+Function func_list[] = {
+    { "list", &c_func_list },
+    { "peek", &c_func_peek },
+    { "pop",  &c_func_pop  },
 };
+
+// Binary search on the sorted func list
+int call_func(EvalContext *e, char *str, int len) {
+    int l = 0, h = ARRAY_SIZE(func_list), m, comp;
+
+    while (l < h) {
+        m = (l + h) / 2;
+        comp = strncmp(str, func_list[m].id, len);
+        if (comp < 0)
+            h = m;
+        else if (comp > 0)
+            l = m;
+        else {
+            return func_list[m].func(e);
+        }
+    }
+
+    return -3;
+}
+
 
 char oper_chars[][5] = {
     ['('] = { 0 },
@@ -149,12 +184,38 @@ int operate(Stack *s, char *oper)
         break;
     
     default:
-        return -1;
+        return -2;
     }
 
     stack_push(s, result);
     return 0;
 }
+
+/*
+ * Tokenisation routinges
+ */
+
+typedef enum CGuess {
+    GUESS_UNKNOWN = 0,
+    GUESS_ERROR,
+    GUESS_NEED_MORE_DATA,
+    GUESS_INTEGER,
+    GUESS_FLOAT,
+    GUESS_OPERATOR,
+    GUESS_NOUN,
+    GUESS_STRING
+} CGuess;
+
+char *guess_strings[] = {
+    [GUESS_UNKNOWN]        = "unknown",
+    [GUESS_ERROR]          = "error",
+    [GUESS_NEED_MORE_DATA] = "incomplete",
+    [GUESS_INTEGER]        = "int",
+    [GUESS_FLOAT]          = "float",
+    [GUESS_OPERATOR]       = "oper",
+    [GUESS_NOUN]           = "noun",
+    [GUESS_STRING]         = "string"
+};
 
 char *nextchunk(char *c, int *size, CGuess *guess)
 {
@@ -214,7 +275,7 @@ char *nextchunk(char *c, int *size, CGuess *guess)
         } else if (CIS_NUMBER(*c)) {  // numeric
             if (float_hint && *guess == GUESS_INTEGER) { // were we hinted about a float?
                 *guess = GUESS_FLOAT; // yeah, this is most likely a float
-            } else if (*guess && (*guess != GUESS_INTEGER && *guess != GUESS_FLOAT)) {
+            } else if (*guess && (*guess != GUESS_INTEGER && *guess != GUESS_FLOAT)) { // Did we just read an entire chunk?
                 goto end;
             } else if (*guess == GUESS_UNKNOWN) {
                 start = c;
@@ -228,6 +289,14 @@ next:
 end:
     *size = (int) (c - start);
     return start;
+}
+
+void eval_log(ectx, fmt, ...)
+{
+    va_list vargs;
+    va_start(vargs, fmt);
+    vfprintf(stderr, format, vargs);
+    va_end(argptr);
 }
 
 void eval_init(EvalContext *e, FILE *f_in, FILE *f_out)
@@ -257,30 +326,52 @@ void eval(EvalContext *e, char *buf)
 
 
         switch (guess) {
-            case GUESS_NOUN:
-            case GUESS_STRING:
-                printf("%s not implemented\n", guess_strings[guess]);
-                return;
-
-            case GUESS_OPERATOR:
-                if (operate(&e->s, start) < 0)
-                    printf("stack underflow\n");
+        case GUESS_NOUN:
+            switch (call_func(e, start, size)) {
+            case -1:
+                printf("stack underflow\n");
                 break;
 
-            case GUESS_INTEGER:
-                numi = atoi(start);
-                if (stack_push(&e->s, numi) < 0)
-                    printf("stack overflow\n");
+            case -2:
+                printf("unrecognised operand\n");
                 break;
 
-            case GUESS_FLOAT:
-                numf = atof(start);
-                if (stack_push(&e->s, (int) numf) < 0)
-                    printf("stack overflow\n");
+            case -3:
+                printf("noun not found\n");
+                break;
+            }
+            break;
+
+        case GUESS_STRING:
+            printf("%s not implemented\n", guess_strings[guess]);
+            return;
+
+        case GUESS_OPERATOR:
+            switch (operate(&e->s, start)) {
+            case -1:
+                printf("stack underflow\n");
                 break;
 
-            default:
-                printf("erroneous input\n");
+            case -2:
+                printf("unrecognised operand\n");
+                break;
+            }
+            break;
+
+        case GUESS_INTEGER:
+            numi = atoi(start);
+            if (stack_push(&e->s, numi) < 0)
+                printf("stack overflow\n");
+            break;
+
+        case GUESS_FLOAT:
+            numf = atof(start);
+            if (stack_push(&e->s, (int) numf) < 0)
+                printf("stack overflow\n");
+            break;
+
+        default:
+            printf("erroneous input\n");
         }
     }
 }
@@ -303,13 +394,6 @@ int main(int argc, char **argv)
             break;
         }
         eval(&e, buf);
-        if (!e.s.top) {
-            printf("<empty stack>\n");
-        } else {
-            for (int i = 0; i < e.s.top; i++)
-                printf("%d ", e.s.data[i]);
-            printf("\n");
-        }
     }
     return 0;
 }
