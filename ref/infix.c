@@ -34,58 +34,6 @@ typedef enum CGuess {
     GUESS_STRING
 } CGuess;
 
-typedef enum Precedence {
-    PRECEDENCE_POSTFIX_UNARY,
-    PRECEDENCE_PREFIX_UNARY,
-    PRECEDENCE_EXPONENTIAL,
-    PRECEDENCE_MULTIPLICATIVE,
-    PRECEDENCE_ADDITIVE,
-    PRECEDENCE_SHIFT,
-    PRECEDENCE_COMPARISON,
-    PRECEDENCE_EQUALITY,
-    PRECEDENCE_B_AND,
-    PRECEDENCE_B_XOR,
-    PRECEDENCE_B_OR,
-    PRECEDENCE_AND,
-    PRECEDENCE_OR,
-    PRECEDENCE_ASSIGNMENT
-} Precedence;
-
-Precedence oper_prec[][5] = {
-    ['('] = { 0 },
-    [')'] = { 0 },
-    ['['] = { 0 },
-    [']'] = { 0 },
-    ['+'] = { '+', '=', 0 },
-    ['-'] = { '-', '=', 0 },
-    ['*'] = { '*', '=', 0 },
-    ['/'] = { '/', '=', 0 },
-    ['>'] = { '=', '>', 0 },
-    ['<'] = { '=', '<', 0 },
-    ['='] = { '=', 0 },
-    ['%'] = { '=', 0 }
-};
-
-/*
- * The precedence values correspond 1:1 with the above char values
- */
-
-Precedence oper_prec[][5] = {
-    ['('] = { 0 },
-    [')'] = { 0 },
-    ['['] = { 0 },
-    [']'] = { 0 },
-    ['+'] = { '+', '=', 0 },
-    ['-'] = { '-', '=', 0 },
-    ['*'] = { '*', '=', 0 },
-    ['/'] = { '/', '=', 0 },
-    ['>'] = { '=', '>', 0 },
-    ['<'] = { '=', '<', 0 },
-    ['='] = { '=', 0 },
-    ['%'] = { '=', 0 }
-};
-
-
 char *guess_strings[] = {
     [GUESS_UNKNOWN]        = "unknown",
     [GUESS_ERROR]          = "error",
@@ -97,7 +45,7 @@ char *guess_strings[] = {
     [GUESS_STRING]         = "string"
 };
 
-char *nextchunk(char *c, int *size, CGuess *guess)
+char *next_token(char *c, int *size, CGuess *guess)
 {
     *guess         = GUESS_UNKNOWN;
     char *start    = NULL;
@@ -171,6 +119,196 @@ end:
     return start;
 }
 
+typedef enum Precedence {
+    PRECEDENCE_UNKNOWN = 0,
+    PRECEDENCE_UNARY = 1,
+    PRECEDENCE_EXPONENTIAL,
+    PRECEDENCE_MULTIPLICATIVE,
+    PRECEDENCE_ADDITIVE,
+    PRECEDENCE_SHIFT,
+    PRECEDENCE_COMPARISON,
+    PRECEDENCE_EQUALITY,
+    PRECEDENCE_B_AND,
+    PRECEDENCE_B_XOR,
+    PRECEDENCE_B_OR,
+    PRECEDENCE_AND,
+    PRECEDENCE_OR,
+    PRECEDENCE_ASSIGNMENT
+} Precedence;
+
+typedef enum OperID {
+    OPER_ID_INCREMENT,
+    OPER_ID_DECREMENT,
+    OPER_ID_B_NOT,
+    OPER_ID_POWER,
+    OPER_ID_MULTIPLICATION,
+    OPER_ID_DIVISION,
+    OPER_ID_REMAINDER,
+    OPER_ID_ADDITION,
+    OPER_ID_SUBTRACTION,
+    OPER_ID_LSHIFT,
+    OPER_ID_RSHIFT,
+    OPER_ID_LT,
+    OPER_ID_LTEQ,
+    OPER_ID_GT,
+    OPER_ID_GTEQ,
+    OPER_ID_EQ,
+    OPER_ID_NEQ,
+    OPER_ID_B_AND,
+    OPER_ID_B_XOR,
+    OPER_ID_B_OR,
+    OPER_ID_AND,
+    OPER_ID_OR,
+    OPER_ID_ASSIGN,
+    OPER_ID_ADDITION_ASSIGN,
+    OPER_ID_SUBTRACTION_ASSIGN,
+    OPER_ID_MULTIPLICATION_ASSIGN,
+    OPER_ID_DIVISION_ASSIGN,
+    OPER_ID_REMAINDER_ASSIGN,
+} OperID;
+
+char oper_chars[][5] = {
+    ['('] = { 0 },
+    [')'] = { 0 },
+    ['['] = { 0 },
+    [']'] = { 0 },
+    ['+'] = { '+', '=', 0 },
+    ['-'] = { '-', '=', 0 },
+    ['*'] = { '*', '=', 0 },
+    ['/'] = { '/', '=', 0 },
+    ['>'] = { '=', '>', 0 },
+    ['<'] = { '=', '<', 0 },
+    ['='] = { '=', 0 },
+    ['%'] = { '=', 0 },
+};
+
+/*
+ * The precedence values correspond 1:1 with the above char values
+ */
+
+Precedence oper_prec[][5] = {
+    ['('] = { 0 },
+    [')'] = { 0 },
+    ['['] = { 0 },
+    [']'] = { 0 },
+    ['+'] = { PRECEDENCE_ADDITIVE,       PRECEDENCE_UNARY,          PRECEDENCE_ASSIGNMENT, 0 },
+    ['-'] = { PRECEDENCE_ADDITIVE,       PRECEDENCE_UNARY,          PRECEDENCE_ASSIGNMENT, 0 },
+    ['*'] = { PRECEDENCE_MULTIPLICATIVE, PRECEDENCE_EXPONENTIAL,    PRECEDENCE_ASSIGNMENT, 0 },
+    ['/'] = { PRECEDENCE_MULTIPLICATIVE, PRECEDENCE_MULTIPLICATIVE, PRECEDENCE_ASSIGNMENT, 0 },
+    ['>'] = { PRECEDENCE_COMPARISON,     PRECEDENCE_COMPARISON,     PRECEDENCE_SHIFT, 0 },
+    ['<'] = { PRECEDENCE_COMPARISON,     PRECEDENCE_COMPARISON,     PRECEDENCE_SHIFT, 0 },
+    ['='] = { PRECEDENCE_ASSIGNMENT,     PRECEDENCE_EQUALITY,       0 },
+    ['%'] = { PRECEDENCE_MULTIPLICATIVE, PRECEDENCE_ASSIGNMENT,     0 }
+};
+
+Precedence oper_id_list[][5] = {
+    ['('] = { 0 },
+    [')'] = { 0 },
+    ['['] = { 0 },
+    [']'] = { 0 },
+    ['+'] = { OPER_ID_ADDITION,       OPER_ID_INCREMENT,         OPER_ID_ADDITION_ASSIGN, 0 },
+    ['-'] = { OPER_ID_SUBTRACTION,    PRECEDENCE_UNARY,          PRECEDENCE_ASSIGNMENT, 0 },
+    ['*'] = { OPER_ID_MULTIPLICATION, OPER_ID_POWER,             PRECEDENCE_ASSIGNMENT, 0 },
+    ['/'] = { OPER_ID_DIVISION,       PRECEDENCE_MULTIPLICATIVE, PRECEDENCE_ASSIGNMENT, 0 },
+    ['>'] = { OPER_ID_GT,             OPER_ID_GTEQ,              PRECEDENCE_SHIFT, 0 },
+    ['<'] = { OPER_ID_LT,             OPER_ID_LTEQ,              PRECEDENCE_SHIFT, 0 },
+    ['='] = { OPER_ID_ASSIGN,         OPER_ID_EQ,                0 },
+    ['%'] = { OPER_ID_REMAINDER,      OPER_ID_REMAINDER_ASSIGN,  0 }
+};
+
+typedef struct OperStack {
+    OperID data[MAXBUF];
+    int top;
+};
+
+typedef struct NumStack {
+    int data[MAXBUF];
+    int top;
+};
+
+typedef struct EvalContext {
+    int active;
+    OperStack os;
+    NumStack ns;
+    FILE *f_out;
+    FILE *f_in;
+} EvalContext;
+
+
+int operate(EvalContext e, char *s)
+{
+    return -9;
+}
+
+void eval(EvalContext *e, char *s)
+{
+    char *start, *curr = buf;
+    CGuess guess;
+    int size;
+
+    int numi;
+    double numf;
+
+    while ((start = nextchunk(curr, &size, &guess)) != NULL) {
+        fprintf(e->f_out, "%d\t%d\t%s\t", (int) (start - buf),
+                                          (int) (start - buf) + size,
+                                          guess_strings[guess]);
+        fwrite(start, 1, size, e->f_out);
+        fprintf(e->f_out, "\n");
+        curr = start + size;
+
+
+        switch (guess) {
+        case GUESS_NOUN:
+            switch (call_func(e, start, size)) {
+            case -1:
+                fprintf(stderr, "stack underflow\n");
+                break;
+
+            case -2:
+                fprintf(stderr, "unrecognised operand\n");
+                break;
+
+            case -3:
+                fprintf(stderr, "noun not found\n");
+                break;
+            }
+            break;
+
+        case GUESS_STRING:
+            fprintf(stderr, "%s not implemented\n", guess_strings[guess]);
+            return;
+
+        case GUESS_OPERATOR:
+            switch (operate(e, start)) {
+            case -1:
+                fprintf(stderr, "stack underflow\n");
+                break;
+
+            case -2:
+                fprintf(stderr, "unrecognised operand\n");
+                break;
+            }
+            break;
+
+        case GUESS_INTEGER:
+            numi = atoi(start);
+            if (stack_push(&e->s, numi) < 0)
+                fprintf(stderr, "stack overflow\n");
+            break;
+
+        case GUESS_FLOAT:
+            numf = atof(start);
+            if (stack_push(&e->s, (int) numf) < 0)
+                fprintf(stderr, "stack overflow\n");
+            break;
+
+        default:
+            fprintf(stderr, "erroneous input\n");
+        }
+    }
+}
+
 int main(int argc, char **argv)
 {
     FILE *f_in  = stdin;
@@ -182,14 +320,8 @@ int main(int argc, char **argv)
     int size;
     fgets(buf, MAXBUF, f_in);
 
-    printf("START\tEND\tGUESS\tVALUE\n");
-    while ((start = nextchunk(curr, &size, &guess)) != NULL) {
-        printf("%d\t%d\t%s\t", (int) (start - buf),
-                               (int) (start - buf) + size,
-                               guess_strings[guess]);
-        fwrite(start, 1, size, f_out);
-        printf("\n");
-        curr = start + size;
+    while ((start = next_token(curr, &size, &guess)) != NULL) {
+
     }
     return 0;
 }
