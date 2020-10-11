@@ -74,9 +74,9 @@ typedef struct Function {
 int c_func_peek(EvalContext *e)
 {
     if (!e->s.top)
-        eval_log("<empty stack>\n");
+        fprintf(stderr, "<empty stack>\n");
     else
-        eval_log("%d\n", e->s.data[e->s.top - 1]);
+        fprintf(stderr, "%d\n", e->s.data[e->s.top - 1]);
     return 0;
 }
 
@@ -89,11 +89,11 @@ int c_func_pop(EvalContext *e)
 int c_func_list(EvalContext *e)
 {
     if (!e->s.top) {
-        eval_log(e, "<empty stack>\n");
+        fprintf(stderr, "<empty stack>\n");
     } else {
         for (int i = 0; i < e->s.top; i++)
-            eval_log("%d ", e->s.data[i]);
-        eval_log("\n");
+            fprintf(stderr, "%d ", e->s.data[i]);
+        fprintf(stderr, "\n");
     }
     return 0;
 }
@@ -291,14 +291,6 @@ end:
     return start;
 }
 
-void eval_log(ectx, fmt, ...)
-{
-    va_list vargs;
-    va_start(vargs, fmt);
-    vfprintf(stderr, format, vargs);
-    va_end(argptr);
-}
-
 void eval_init(EvalContext *e, FILE *f_in, FILE *f_out)
 {
     e->active = 1;
@@ -317,11 +309,11 @@ void eval(EvalContext *e, char *buf)
     double numf;
 
     while ((start = nextchunk(curr, &size, &guess)) != NULL) {
-        printf("%d\t%d\t%s\t", (int) (start - buf),
-                               (int) (start - buf) + size,
-                               guess_strings[guess]);
+        fprintf(e->f_out, "%d\t%d\t%s\t", (int) (start - buf),
+                                          (int) (start - buf) + size,
+                                          guess_strings[guess]);
         fwrite(start, 1, size, e->f_out);
-        printf("\n");
+        fprintf(e->f_out, "\n");
         curr = start + size;
 
 
@@ -329,31 +321,31 @@ void eval(EvalContext *e, char *buf)
         case GUESS_NOUN:
             switch (call_func(e, start, size)) {
             case -1:
-                printf("stack underflow\n");
+                fprintf(stderr, "stack underflow\n");
                 break;
 
             case -2:
-                printf("unrecognised operand\n");
+                fprintf(stderr, "unrecognised operand\n");
                 break;
 
             case -3:
-                printf("noun not found\n");
+                fprintf(stderr, "noun not found\n");
                 break;
             }
             break;
 
         case GUESS_STRING:
-            printf("%s not implemented\n", guess_strings[guess]);
+            fprintf(stderr, "%s not implemented\n", guess_strings[guess]);
             return;
 
         case GUESS_OPERATOR:
             switch (operate(&e->s, start)) {
             case -1:
-                printf("stack underflow\n");
+                fprintf(stderr, "stack underflow\n");
                 break;
 
             case -2:
-                printf("unrecognised operand\n");
+                fprintf(stderr, "unrecognised operand\n");
                 break;
             }
             break;
@@ -361,17 +353,17 @@ void eval(EvalContext *e, char *buf)
         case GUESS_INTEGER:
             numi = atoi(start);
             if (stack_push(&e->s, numi) < 0)
-                printf("stack overflow\n");
+                fprintf(stderr, "stack overflow\n");
             break;
 
         case GUESS_FLOAT:
             numf = atof(start);
             if (stack_push(&e->s, (int) numf) < 0)
-                printf("stack overflow\n");
+                fprintf(stderr, "stack overflow\n");
             break;
 
         default:
-            printf("erroneous input\n");
+            fprintf(stderr, "erroneous input\n");
         }
     }
 }
