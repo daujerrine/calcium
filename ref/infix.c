@@ -45,79 +45,7 @@ char *guess_strings[] = {
     [GUESS_STRING]         = "string"
 };
 
-char *next_token(char *c, int *size, CGuess *guess)
-{
-    *guess         = GUESS_UNKNOWN;
-    char *start    = NULL;
-    int float_hint = 0;
-    char delimiter = '\0';
-    char curr_oper = '\0';
-    int i;
 
-    while (*c) {
-        switch (*c) {
-        case ' ': case '\n': case '\t':
-            if (*guess)
-                goto end;
-            goto next;
-
-        case '"':
-        case '\'':
-            delimiter = *c;
-            start = c;
-            while ((*++c) && *c != delimiter);
-            if (*c != delimiter) {
-                *guess = GUESS_ERROR;
-                goto end;
-            } else {
-                *guess = GUESS_STRING;
-                c++;
-                goto end;
-            }
-        }
-
-        if (CIS_SYMBOL(*c)) { // non-alphanumeric
-            if (*c == '.' && *guess == GUESS_INTEGER) { // Is this possibly a float?
-                float_hint = 1; // If so, store this "hinting"
-            } else if (*guess && *guess == GUESS_OPERATOR) {
-                for (i = 0; oper_strings[curr_oper][i]; i++)
-                    if (oper_strings[curr_oper][i] == *c) {
-                        c++;
-                        goto end;
-                    }
-                if (!oper_strings[curr_oper][i])
-                    goto end;
-            } else if (*guess && *guess != GUESS_OPERATOR) { // Did we just read an entire chunk?
-                goto end;
-            } else if (!*guess) { // Is this the continuation or the start of a chunk?
-                start = c;
-                curr_oper = *c;
-                *guess = GUESS_OPERATOR;
-            }
-        } else if (CIS_ALPHA(*c)) { // alphabetical
-            if (*guess && *guess != GUESS_NOUN)
-                goto end;
-            else if (!*guess)
-                start = c;
-            *guess = GUESS_NOUN;
-        } else if (CIS_NUMBER(*c)) {  // numeric
-            if (float_hint && *guess == GUESS_INTEGER) { // were we hinted about a float?
-                *guess = GUESS_FLOAT; // yeah, this is most likely a float
-            } else if (*guess && (*guess != GUESS_INTEGER && *guess != GUESS_FLOAT)) {
-                goto end;
-            } else if (*guess == GUESS_UNKNOWN) {
-                start = c;
-                *guess = GUESS_INTEGER;
-            }
-        }
-next:
-        c++;
-    }
-
-end:
-    *size = (int) (c - start);
-    return start;
-}
 
 typedef enum Precedence {
     PRECEDENCE_UNKNOWN = 0,
@@ -202,8 +130,8 @@ Precedence oper_prec[][5] = {
 };
 
 Precedence oper_id_list[][5] = {
-    ['('] = { 0 },
-    [')'] = { 0 },
+    ['('] = { OPER_ID_INNER_EXPRESSION, 0 },
+    [')'] = { OPER_ID_, 0 },
     ['['] = { 0 },
     [']'] = { 0 },
     ['+'] = { OPER_ID_ADDITION,       OPER_ID_INCREMENT,         OPER_ID_ADDITION_ASSIGN, 0 },
@@ -235,9 +163,132 @@ typedef struct EvalContext {
 } EvalContext;
 
 
-int operate(EvalContext e, char *s)
+char *next_token(char *c, int *size, CGuess *guess, int *priv)
 {
-    return -9;
+    *guess         = GUESS_UNKNOWN;
+    char *start    = NULL;
+    int float_hint = 0;
+    char delimiter = '\0';
+    char curr_oper = '\0';
+    int i;
+
+    *priv = 0;
+    while (*c) {
+        switch (*c) {
+        case ' ': case '\n': case '\t':
+            if (*guess)
+                goto end;
+            goto next;
+
+        case '"':
+        case '\'':
+            delimiter = *c;
+            start = c;
+            while ((*++c) && *c != delimiter);
+            if (*c != delimiter) {
+                *guess = GUESS_ERROR;
+                goto end;
+            } else {
+                *guess = GUESS_STRING;
+                c++;
+                goto end;
+            }
+        }
+
+        if (CIS_SYMBOL(*c)) { // non-alphanumeric
+            if (*c == '.' && *guess == GUESS_INTEGER) { // Is this possibly a float?
+                float_hint = 1; // If so, store this "hinting"
+            } else if (*guess && *guess == GUESS_OPERATOR) {
+                for (i = 0; oper_strings[curr_oper][i]; i++)
+                    if (oper_strings[curr_oper][i] == *c) {
+                        c++;
+                        goto end;
+                    }
+                if (!oper_strings[curr_oper][i])
+                    goto end;
+            } else if (*guess && *guess != GUESS_OPERATOR) { // Did we just read an entire chunk?
+                goto end;
+            } else if (!*guess) { // Is this the continuation or the start of a chunk?
+                start = c;
+                curr_oper = *c;
+                *guess = GUESS_OPERATOR;
+            }
+        } else if (CIS_ALPHA(*c)) { // alphabetical
+            if (*guess && *guess != GUESS_NOUN)
+                goto end;
+            else if (!*guess)
+                start = c;
+            *guess = GUESS_NOUN;
+        } else if (CIS_NUMBER(*c)) {  // numeric
+            if (float_hint && *guess == GUESS_INTEGER) { // were we hinted about a float?
+                *guess = GUESS_FLOAT; // yeah, this is most likely a float
+            } else if (*guess && (*guess != GUESS_INTEGER && *guess != GUESS_FLOAT)) {
+                goto end;
+            } else if (*guess == GUESS_UNKNOWN) {
+                start = c;
+                *guess = GUESS_INTEGER;
+            }
+        }
+next:
+        c++;
+    }
+
+end:
+    *size = (int) (c - start);
+    return start;
+}
+
+int operate(EvalContext *e, OperID curr_oper)
+{
+    switch (curr_oper) {
+    case OPER_ID_INCREMENT:
+        break;
+    case OPER_ID_DECREMENT:
+        break;
+    case OPER_ID_B_NOT:
+        break;
+    case OPER_ID_POWER:
+        break;
+    case OPER_ID_MULTIPLICATION:
+        break;
+    case OPER_ID_DIVISION:
+        break;
+    case OPER_ID_REMAINDER:
+        break;
+    case OPER_ID_ADDITION:
+        break;
+    case OPER_ID_SUBTRACTION:
+        break;
+    case OPER_ID_LSHIFT:
+        break;
+    case OPER_ID_RSHIFT:
+        break;
+    case OPER_ID_LT:
+        break;
+    case OPER_ID_LTEQ:
+        break;
+    case OPER_ID_GT:
+        break;
+    case OPER_ID_GTEQ:
+        break;
+    case OPER_ID_EQ:
+        break;
+    case OPER_ID_NEQ:
+        break;
+    case OPER_ID_B_AND:
+        break;
+    case OPER_ID_B_XOR:
+        break;
+    case OPER_ID_B_OR:
+        break;
+    case OPER_ID_AND:
+        break;
+    case OPER_ID_OR:
+        break;
+    
+    default:
+        fprintf(stderr, "operator not implemented.\n");
+    }
 }
 
 void eval(EvalContext *e, char *s)
@@ -260,21 +311,6 @@ void eval(EvalContext *e, char *s)
 
         switch (guess) {
         case GUESS_NOUN:
-            switch (call_func(e, start, size)) {
-            case -1:
-                fprintf(stderr, "stack underflow\n");
-                break;
-
-            case -2:
-                fprintf(stderr, "unrecognised operand\n");
-                break;
-
-            case -3:
-                fprintf(stderr, "noun not found\n");
-                break;
-            }
-            break;
-
         case GUESS_STRING:
             fprintf(stderr, "%s not implemented\n", guess_strings[guess]);
             return;
