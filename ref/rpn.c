@@ -296,7 +296,8 @@ void eval_init(EvalContext *e, FILE *f_in, FILE *f_out)
     e->active = 1;
     e->f_in   = f_in;
     e->f_out  = f_out;
-    e->s.top  = 0;
+    e->ns.top = 0;
+    e->os.top = 0;
 }
 
 void eval(EvalContext *e, char *buf)
