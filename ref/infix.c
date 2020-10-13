@@ -10,6 +10,9 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
 
 #define MAXBUF 4096
 
@@ -95,6 +98,9 @@ typedef enum OperID {
     OPER_ID_REMAINDER_ASSIGN,
 } OperID;
 
+
+/* TODO Combine all 3 arrays below */
+
 char oper_chars[][5] = {
     ['('] = { 0 },
     [')'] = { 0 },
@@ -110,49 +116,85 @@ char oper_chars[][5] = {
     ['%'] = { '=', 0 },
 };
 
-/*
- * The precedence values correspond 1:1 with the above char values
- */
 
-Precedence oper_prec[][5] = {
-    ['('] = { 0 },
-    [')'] = { 0 },
-    ['['] = { 0 },
-    [']'] = { 0 },
-    ['+'] = { PRECEDENCE_ADDITIVE,       PRECEDENCE_UNARY,          PRECEDENCE_ASSIGNMENT, 0 },
-    ['-'] = { PRECEDENCE_ADDITIVE,       PRECEDENCE_UNARY,          PRECEDENCE_ASSIGNMENT, 0 },
-    ['*'] = { PRECEDENCE_MULTIPLICATIVE, PRECEDENCE_EXPONENTIAL,    PRECEDENCE_ASSIGNMENT, 0 },
-    ['/'] = { PRECEDENCE_MULTIPLICATIVE, PRECEDENCE_MULTIPLICATIVE, PRECEDENCE_ASSIGNMENT, 0 },
-    ['>'] = { PRECEDENCE_COMPARISON,     PRECEDENCE_COMPARISON,     PRECEDENCE_SHIFT, 0 },
-    ['<'] = { PRECEDENCE_COMPARISON,     PRECEDENCE_COMPARISON,     PRECEDENCE_SHIFT, 0 },
-    ['='] = { PRECEDENCE_ASSIGNMENT,     PRECEDENCE_EQUALITY,       0 },
-    ['%'] = { PRECEDENCE_MULTIPLICATIVE, PRECEDENCE_ASSIGNMENT,     0 }
-};
+typedef struct Operator {
+    char extra_symbol;
+    OperID id;
+    Precedence prec;
+} Operator;
 
-Precedence oper_id_list[][5] = {
-    ['('] = { OPER_ID_INNER_EXPRESSION, 0 },
-    [')'] = { OPER_ID_, 0 },
-    ['['] = { 0 },
-    [']'] = { 0 },
-    ['+'] = { OPER_ID_ADDITION,       OPER_ID_INCREMENT,         OPER_ID_ADDITION_ASSIGN, 0 },
-    ['-'] = { OPER_ID_SUBTRACTION,    PRECEDENCE_UNARY,          PRECEDENCE_ASSIGNMENT, 0 },
-    ['*'] = { OPER_ID_MULTIPLICATION, OPER_ID_POWER,             PRECEDENCE_ASSIGNMENT, 0 },
-    ['/'] = { OPER_ID_DIVISION,       PRECEDENCE_MULTIPLICATIVE, PRECEDENCE_ASSIGNMENT, 0 },
-    ['>'] = { OPER_ID_GT,             OPER_ID_GTEQ,              PRECEDENCE_SHIFT, 0 },
-    ['<'] = { OPER_ID_LT,             OPER_ID_LTEQ,              PRECEDENCE_SHIFT, 0 },
-    ['='] = { OPER_ID_ASSIGN,         OPER_ID_EQ,                0 },
-    ['%'] = { OPER_ID_REMAINDER,      OPER_ID_REMAINDER_ASSIGN,  0 }
+
+Operator oper_list[][5] = {
+    ['('] = { { '\0' } },
+    [')'] = { { '\0' } },
+    ['['] = { { '\0' } },
+    [']'] = { { '\0' } },
+    /*    OPER  OPER_ID                        PRECEDENCE                     */
+    ['+'] =
+    {
+        { '\0', OPER_ID_ADDITION,              PRECEDENCE_ADDITIVE       },
+        { '+',  OPER_ID_INCREMENT,             PRECEDENCE_UNARY          },
+        { '=',  OPER_ID_ADDITION_ASSIGN,       PRECEDENCE_ASSIGNMENT     },
+        { 0 }                                  
+    },                                         
+    ['-'] =                                    
+    {                                          
+        { '\0', OPER_ID_SUBTRACTION,           PRECEDENCE_ADDITIVE       },
+        { '-',  OPER_ID_DECREMENT,             PRECEDENCE_UNARY          },
+        { '=',  OPER_ID_SUBTRACTION_ASSIGN,    PRECEDENCE_ASSIGNMENT     },
+        { 0 }
+    },
+    ['*'] =
+    {
+        { '\0', OPER_ID_MULTIPLICATION,        PRECEDENCE_MULTIPLICATIVE },
+        { '*',  OPER_ID_POWER,                 PRECEDENCE_EXPONENTIAL    },
+        { '=',  OPER_ID_MULTIPLICATION_ASSIGN, PRECEDENCE_ASSIGNMENT     },
+        { 0 }
+    },
+    ['/'] =
+    {
+        { '\0', OPER_ID_DIVISION,              PRECEDENCE_MULTIPLICATIVE },
+        { '/',  OPER_ID_DIVISION,              PRECEDENCE_MULTIPLICATIVE },
+        { '=',  OPER_ID_DIVISION_ASSIGN,       PRECEDENCE_ASSIGNMENT     },
+        { 0 }
+    },
+    ['>'] =
+    {
+        { '\0', OPER_ID_GT,                    PRECEDENCE_COMPARISON     },
+        { '=',  OPER_ID_GTEQ,                  PRECEDENCE_COMPARISON     },
+        { '>',  OPER_ID_RSHIFT,                PRECEDENCE_SHIFT          },
+        { 0 }
+    },
+    ['<'] =
+    {
+        { '\0', OPER_ID_LT,                    PRECEDENCE_COMPARISON     },
+        { '=',  OPER_ID_LTEQ,                  PRECEDENCE_COMPARISON     },
+        { '<',  OPER_ID_LSHIFT,                PRECEDENCE_SHIFT          },
+        { 0 }
+    },
+    ['='] =
+    {
+        { '\0', OPER_ID_ASSIGN,                PRECEDENCE_ASSIGNMENT     },
+        { '=',  OPER_ID_EQ,                    PRECEDENCE_EQUALITY       },
+        { 0 }
+    },
+    ['%'] =
+    {
+        { '\0', OPER_ID_REMAINDER,             PRECEDENCE_MULTIPLICATIVE },
+        { '=',  OPER_ID_REMAINDER_ASSIGN,      PRECEDENCE_ASSIGNMENT     },
+        { 0 }
+    },
 };
 
 typedef struct OperStack {
     OperID data[MAXBUF];
     int top;
-};
+} OperStack;
 
 typedef struct NumStack {
     int data[MAXBUF];
     int top;
-};
+} NumStack;
 
 typedef struct EvalContext {
     int active;
@@ -163,7 +205,7 @@ typedef struct EvalContext {
 } EvalContext;
 
 
-char *next_token(char *c, int *size, CGuess *guess, int *priv)
+char *next_token(char *c, int *size, CGuess *guess, Operator *oper)
 {
     *guess         = GUESS_UNKNOWN;
     char *start    = NULL;
@@ -172,7 +214,6 @@ char *next_token(char *c, int *size, CGuess *guess, int *priv)
     char curr_oper = '\0';
     int i;
 
-    *priv = 0;
     while (*c) {
         switch (*c) {
         case ' ': case '\n': case '\t':
@@ -199,13 +240,16 @@ char *next_token(char *c, int *size, CGuess *guess, int *priv)
             if (*c == '.' && *guess == GUESS_INTEGER) { // Is this possibly a float?
                 float_hint = 1; // If so, store this "hinting"
             } else if (*guess && *guess == GUESS_OPERATOR) {
-                for (i = 0; oper_strings[curr_oper][i]; i++)
-                    if (oper_strings[curr_oper][i] == *c) {
+                for (i = 1; oper_list[curr_oper][i].extra_symbol; i++) {
+                    if (oper_list[curr_oper][i].extra_symbol == *c) {
                         c++;
+                        oper = &oper_list[curr_oper][i];
                         goto end;
                     }
-                if (!oper_strings[curr_oper][i])
-                    goto end;
+                }
+                oper = &oper_list[curr_oper][0];
+                goto end;
+
             } else if (*guess && *guess != GUESS_OPERATOR) { // Did we just read an entire chunk?
                 goto end;
             } else if (!*guess) { // Is this the continuation or the start of a chunk?
@@ -238,9 +282,9 @@ end:
     return start;
 }
 
-int operate(EvalContext *e, OperID curr_oper)
+int operate(EvalContext *e, Operator *oper)
 {
-    switch (curr_oper) {
+    switch (oper->id) {
     case OPER_ID_INCREMENT:
         break;
     case OPER_ID_DECREMENT:
@@ -291,16 +335,17 @@ int operate(EvalContext *e, OperID curr_oper)
     }
 }
 
-void eval(EvalContext *e, char *s)
+void eval(EvalContext *e, char *buf)
 {
     char *start, *curr = buf;
     CGuess guess;
+    Operator oper;
     int size;
 
     int numi;
     double numf;
 
-    while ((start = nextchunk(curr, &size, &guess)) != NULL) {
+    while ((start = next_token(curr, &size, &guess, &oper)) != NULL) {
         fprintf(e->f_out, "%d\t%d\t%s\t", (int) (start - buf),
                                           (int) (start - buf) + size,
                                           guess_strings[guess]);
@@ -316,7 +361,7 @@ void eval(EvalContext *e, char *s)
             return;
 
         case GUESS_OPERATOR:
-            switch (operate(e, start)) {
+            switch (operate(e, &oper)) {
             case -1:
                 fprintf(stderr, "stack underflow\n");
                 break;
@@ -329,14 +374,14 @@ void eval(EvalContext *e, char *s)
 
         case GUESS_INTEGER:
             numi = atoi(start);
-            if (stack_push(&e->s, numi) < 0)
-                fprintf(stderr, "stack overflow\n");
+            //if (stack_push(&e->s, numi) < 0)
+            //    fprintf(stderr, "stack overflow\n");
             break;
 
         case GUESS_FLOAT:
             numf = atof(start);
-            if (stack_push(&e->s, (int) numf) < 0)
-                fprintf(stderr, "stack overflow\n");
+            //if (stack_push(&e->s, (int) numf) < 0)
+            //    fprintf(stderr, "stack overflow\n");
             break;
 
         default:
@@ -356,8 +401,5 @@ int main(int argc, char **argv)
     int size;
     fgets(buf, MAXBUF, f_in);
 
-    while ((start = next_token(curr, &size, &guess)) != NULL) {
-
-    }
     return 0;
 }
