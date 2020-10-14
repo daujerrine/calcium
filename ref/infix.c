@@ -68,7 +68,7 @@ typedef enum Precedence {
 } Precedence;
 
 typedef enum OperID {
-    OPER_ID_INCREMENT,
+    OPER_ID_INCREMENT = 0,
     OPER_ID_DECREMENT,
     OPER_ID_B_NOT,
     OPER_ID_POWER,
@@ -125,10 +125,10 @@ typedef struct Operator {
 
 
 Operator oper_list[][5] = {
-    ['('] = { { '\0' } },
-    [')'] = { { '\0' } },
-    ['['] = { { '\0' } },
-    [']'] = { { '\0' } },
+    ['('] = { { '\0' }, { 0 } },
+    [')'] = { { '\0' }, { 0 } },
+    ['['] = { { '\0' }, { 0 } },
+    [']'] = { { '\0' }, { 0 } },
     /*    OPER  OPER_ID                        PRECEDENCE                     */
     ['+'] =
     {
@@ -204,6 +204,14 @@ typedef struct EvalContext {
     FILE *f_in;
 } EvalContext;
 
+void eval_init(EvalContext *e, FILE *f_in, FILE *f_out)
+{
+    e->active = 1;
+    e->f_in   = f_in;
+    e->f_out  = f_out;
+    e->ns.top = 0;
+    e->os.top = 0;
+}
 
 char *next_token(char *c, int *size, CGuess *guess, Operator *oper)
 {
@@ -240,21 +248,32 @@ char *next_token(char *c, int *size, CGuess *guess, Operator *oper)
             if (*c == '.' && *guess == GUESS_INTEGER) { // Is this possibly a float?
                 float_hint = 1; // If so, store this "hinting"
             } else if (*guess && *guess == GUESS_OPERATOR) {
+                printf("enter");
                 for (i = 1; oper_list[curr_oper][i].extra_symbol; i++) {
                     if (oper_list[curr_oper][i].extra_symbol == *c) {
                         c++;
-                        oper = &oper_list[curr_oper][i];
+                        printf("ending second\n");
+                        *oper = oper_list[curr_oper][i];
                         goto end;
                     }
+                    printf("iter\n");
                 }
-                oper = &oper_list[curr_oper][0];
+                printf("ending first\n");
+                *oper = oper_list[curr_oper][0];
                 goto end;
 
             } else if (*guess && *guess != GUESS_OPERATOR) { // Did we just read an entire chunk?
+                printf("enter 2\n");
                 goto end;
             } else if (!*guess) { // Is this the continuation or the start of a chunk?
+                printf("enter else\n");
                 start = c;
                 curr_oper = *c;
+                /*
+                 * If this is only char, this is most definitely the operator
+                 * intended
+                 */
+                *oper = oper_list[curr_oper][0]; 
                 *guess = GUESS_OPERATOR;
             }
         } else if (CIS_ALPHA(*c)) { // alphabetical
@@ -361,7 +380,9 @@ void eval(EvalContext *e, char *buf)
             return;
 
         case GUESS_OPERATOR:
-            switch (operate(e, &oper)) {
+            printf("operator found: 0x%x id: %d prec: %d\n", oper.extra_symbol,
+                   oper.id, oper.prec);
+            /*switch (operate(e, &oper)) {
             case -1:
                 fprintf(stderr, "stack underflow\n");
                 break;
@@ -369,7 +390,7 @@ void eval(EvalContext *e, char *buf)
             case -2:
                 fprintf(stderr, "unrecognised operand\n");
                 break;
-            }
+            }*/
             break;
 
         case GUESS_INTEGER:
@@ -396,10 +417,20 @@ int main(int argc, char **argv)
     FILE *f_out = stdout;
     char buf[MAXBUF];
     char *start, *curr = buf;
-
-    CGuess guess;
+    EvalContext e;
     int size;
-    fgets(buf, MAXBUF, f_in);
 
+    eval_init(&e, f_in, f_out);
+
+    printf("Calculator\n"
+           "Enter an expression. Press CTRL + D to exit.\n\n");
+    while (e.active) {
+        printf("?> ");
+        if (!fgets(buf, MAXBUF, e.f_in)) {
+            printf("EOF\n");
+            break;
+        }
+        eval(&e, buf);
+    }
     return 0;
 }
