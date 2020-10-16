@@ -186,20 +186,48 @@ Operator oper_list[][5] = {
     },
 };
 
-typedef struct OperStack {
-    OperID data[MAXBUF];
+typedef struct Stack {
+    void *data;
+    int elem_size;
+    int nelem;
     int top;
-} OperStack;
+} Stack;
 
-typedef struct NumStack {
-    int data[MAXBUF];
-    int top;
-} NumStack;
+static void stack_init(Stack *s, int elem_size, int nelem)
+{
+    s->data = malloc((unsigned long) elem_size * nelem);
+    s->elem_size = elem_size;
+    s->nelem = nelem;
+    s->top = 0;
+}
+
+static inline int stack_pop(Stack *s, int *value)
+{
+    if (s->top == 0)
+        return -1;
+    *value = s->data[--s->top];
+
+    return 0;
+}
+
+static inline int stack_push(Stack *s, int value)
+{
+    if (s->top == MAXBUF + 1)
+        return -1;
+    s->data[s->top++] = value;
+
+    return 0;
+}
+
+static inline int stack_empty()
+{
+    return s->top == 0;
+}
 
 typedef struct EvalContext {
     int active;
-    OperStack os;
-    NumStack ns;
+    Stack operstack;
+    Stack numstack;
     FILE *f_out;
     FILE *f_in;
 } EvalContext;
