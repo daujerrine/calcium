@@ -99,23 +99,7 @@ typedef enum OperID {
 } OperID;
 
 
-/* TODO Combine all 3 arrays below */
-
-char oper_chars[][5] = {
-    ['('] = { 0 },
-    [')'] = { 0 },
-    ['['] = { 0 },
-    [']'] = { 0 },
-    ['+'] = { '+', '=', 0 },
-    ['-'] = { '-', '=', 0 },
-    ['*'] = { '*', '=', 0 },
-    ['/'] = { '/', '=', 0 },
-    ['>'] = { '=', '>', 0 },
-    ['<'] = { '=', '<', 0 },
-    ['='] = { '=', 0 },
-    ['%'] = { '=', 0 },
-};
-
+/* TODO Rearrange extra symbol to end */
 
 typedef struct Operator {
     char extra_symbol;
@@ -186,6 +170,8 @@ Operator oper_list[][5] = {
     },
 };
 
+#define OPERATOR_ISUNARY(oper) ((oepr).prec == PRECEDENCE_UNARY)
+
 typedef struct Stack {
     void *data;
     int elem_size;
@@ -201,27 +187,32 @@ static void stack_init(Stack *s, int elem_size, int nelem)
     s->top = 0;
 }
 
-static inline int stack_pop(Stack *s, int *value)
+static inline int stack_pop(Stack *s, void **value)
 {
     if (s->top == 0)
         return -1;
-    *value = s->data[--s->top];
+    *value = (s->data + s->nelem * (--s->top));
 
     return 0;
 }
 
-static inline int stack_push(Stack *s, int value)
+static inline int stack_push(Stack *s, void *value)
 {
     if (s->top == MAXBUF + 1)
         return -1;
-    s->data[s->top++] = value;
+    *(s->data + s->nelem * (s->top++)) = value;
 
     return 0;
 }
 
-static inline int stack_empty()
+static inline int stack_empty(Stack *s)
 {
     return s->top == 0;
+}
+
+static inline int stack_size(Stack *s)
+{
+    return s->top;
 }
 
 typedef struct EvalContext {
@@ -237,8 +228,8 @@ void eval_init(EvalContext *e, FILE *f_in, FILE *f_out)
     e->active = 1;
     e->f_in   = f_in;
     e->f_out  = f_out;
-    e->ns.top = 0;
-    e->os.top = 0;
+    stack_init(&e->ns, sizeof(int), MAXBUF);
+    stack_init(&e->os, sizeof(Operator *), MAXBUF);
 }
 
 char *next_token(char *c, int *size, CGuess *guess, Operator *oper)
@@ -331,6 +322,20 @@ end:
 
 int operate(EvalContext *e, Operator *oper)
 {
+    if (!oper) {
+        // End condition. Perform all operations left.
+    }
+
+    if (stack_empty(e->os)) {
+        if (OPERATOR_ISUNARY(oper))
+            return -1;
+        stack_push(e->os, oper); // We merely copy the reference to the table.
+    }
+
+    if (stack_empty(e->ns) && (stack_size(e->os) > 0)) {
+        return -1; // Illegal number of operators in stack
+    }
+    
     switch (oper->id) {
     case OPER_ID_INCREMENT:
         break;
@@ -410,7 +415,8 @@ void eval(EvalContext *e, char *buf)
         case GUESS_OPERATOR:
             printf("operator found: 0x%x id: %d prec: %d\n", oper.extra_symbol,
                    oper.id, oper.prec);
-            /*switch (operate(e, &oper)) {
+            stack_push(
+            switch (operate(e, &oper)) {
             case -1:
                 fprintf(stderr, "stack underflow\n");
                 break;
@@ -418,7 +424,7 @@ void eval(EvalContext *e, char *buf)
             case -2:
                 fprintf(stderr, "unrecognised operand\n");
                 break;
-            }*/
+            }
             break;
 
         case GUESS_INTEGER:
