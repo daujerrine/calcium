@@ -320,71 +320,96 @@ end:
     return start;
 }
 
+enum OperationMode {
+    OPER_MODE_EVALUATE_SCOPE,
+    OPER_MODE_EVALUATE_ALL,
+    OPER_MODE_STEP
+}
+
+int operate_internal(EvalContext *e)
+{
+    Operator *oper;
+    int a, b, ret;
+    while (!stack_empty(e->os)) {
+        stack_pop(&e->os, &oper);
+        if (OPERATOR_ISUNARY(oper))
+            stack_pop(&e->ns, &a);
+        else {
+            stack_pop(&e->ns, &a);
+            stack_pop(&e->ns, &b);
+        }
+        switch (oper->id) {
+        case OPER_ID_INCREMENT:
+            break;
+        case OPER_ID_DECREMENT:
+            break;
+        case OPER_ID_B_NOT:
+            break;
+        case OPER_ID_POWER:
+            break;
+        case OPER_ID_MULTIPLICATION:
+            break;
+        case OPER_ID_DIVISION:
+            break;
+        case OPER_ID_REMAINDER:
+            break;
+        case OPER_ID_ADDITION:
+            break;
+        case OPER_ID_SUBTRACTION:
+            break;
+        case OPER_ID_LSHIFT:
+            break;
+        case OPER_ID_RSHIFT:
+            break;
+        case OPER_ID_LT:
+            break;
+        case OPER_ID_LTEQ:
+            break;
+        case OPER_ID_GT:
+            break;
+        case OPER_ID_GTEQ:
+            break;
+        case OPER_ID_EQ:
+            break;
+        case OPER_ID_NEQ:
+            break;
+        case OPER_ID_B_AND:
+            break;
+        case OPER_ID_B_XOR:
+            break;
+        case OPER_ID_B_OR:
+            break;
+        case OPER_ID_AND:
+            break;
+        case OPER_ID_OR:
+            break;
+        
+        default:
+            fprintf(stderr, "operator not implemented.\n");
+    }
+}
+
 int operate(EvalContext *e, Operator *oper)
 {
     if (!oper) {
         // End condition. Perform all operations left.
+        operate_internal(e);
+        return 0;
     }
 
     if (stack_empty(e->os)) {
         if (OPERATOR_ISUNARY(oper))
             return -1;
         stack_push(e->os, oper); // We merely copy the reference to the table.
+        return 0;
     }
 
     if (stack_empty(e->ns) && (stack_size(e->os) > 0)) {
         return -1; // Illegal number of operators in stack
     }
-    
-    switch (oper->id) {
-    case OPER_ID_INCREMENT:
-        break;
-    case OPER_ID_DECREMENT:
-        break;
-    case OPER_ID_B_NOT:
-        break;
-    case OPER_ID_POWER:
-        break;
-    case OPER_ID_MULTIPLICATION:
-        break;
-    case OPER_ID_DIVISION:
-        break;
-    case OPER_ID_REMAINDER:
-        break;
-    case OPER_ID_ADDITION:
-        break;
-    case OPER_ID_SUBTRACTION:
-        break;
-    case OPER_ID_LSHIFT:
-        break;
-    case OPER_ID_RSHIFT:
-        break;
-    case OPER_ID_LT:
-        break;
-    case OPER_ID_LTEQ:
-        break;
-    case OPER_ID_GT:
-        break;
-    case OPER_ID_GTEQ:
-        break;
-    case OPER_ID_EQ:
-        break;
-    case OPER_ID_NEQ:
-        break;
-    case OPER_ID_B_AND:
-        break;
-    case OPER_ID_B_XOR:
-        break;
-    case OPER_ID_B_OR:
-        break;
-    case OPER_ID_AND:
-        break;
-    case OPER_ID_OR:
-        break;
-    
-    default:
-        fprintf(stderr, "operator not implemented.\n");
-    }
+
+    operate_internal(e);
+    return 0;
 }
 
 void eval(EvalContext *e, char *buf)
