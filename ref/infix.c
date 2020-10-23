@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
+#include <math.h>
 
 #define MAXBUF 4096
 
@@ -47,8 +48,6 @@ char *guess_strings[] = {
     [GUESS_NOUN]           = "noun",
     [GUESS_STRING]         = "string"
 };
-
-
 
 typedef enum Precedence {
     PRECEDENCE_UNKNOWN = 0,
@@ -196,6 +195,14 @@ static inline int stack_pop(Stack *s, void **value)
     return 0;
 }
 
+static inline int stack_peek(Stack *s, void **value)
+{
+    if (s->top == 0)
+        return -1;
+    *value = (s->data + s->nelem * (s->top - 1));
+    return 0;
+}
+
 static inline int stack_push(Stack *s, void *value)
 {
     if (s->top == MAXBUF + 1)
@@ -325,7 +332,22 @@ enum OperationMode {
     OPER_MODE_EVALUATE_ALL,
     OPER_MODE_STEP
 }
-
+/*
+ * if number
+ *     push to numstack
+ * else if operator
+ *     if prev oper has higher precedence
+ *         operate prev oper
+ *         push current to operstack
+ *     else
+ *         eval curr oper
+ * else if bracket open
+ *     push and continue
+ * else if bracket close
+ *     operate upto bracket open
+ *
+ *
+ */
 int operate_internal(EvalContext *e)
 {
     Operator *oper;
@@ -340,48 +362,70 @@ int operate_internal(EvalContext *e)
         }
         switch (oper->id) {
         case OPER_ID_INCREMENT:
+            ret = a++;
             break;
         case OPER_ID_DECREMENT:
+            ret = a--;
             break;
         case OPER_ID_B_NOT:
+            ret = ~a;
             break;
         case OPER_ID_POWER:
+            ret = pow(a, b)
             break;
         case OPER_ID_MULTIPLICATION:
+            ret = a * b;
             break;
         case OPER_ID_DIVISION:
+            ret = a / b;
             break;
         case OPER_ID_REMAINDER:
+            ret = a % b;
             break;
         case OPER_ID_ADDITION:
+            ret = a + b;
             break;
         case OPER_ID_SUBTRACTION:
+            ret = a - b;
             break;
         case OPER_ID_LSHIFT:
+            ret = a << b;
             break;
         case OPER_ID_RSHIFT:
+            ret = a >> b;
             break;
         case OPER_ID_LT:
+            ret = a < b;
             break;
         case OPER_ID_LTEQ:
+            ret = a <= b;
             break;
         case OPER_ID_GT:
+            ret = a > b;
             break;
         case OPER_ID_GTEQ:
+            ret = a >= b;
             break;
         case OPER_ID_EQ:
+            ret = a == b;
             break;
         case OPER_ID_NEQ:
+            ret = a != b;
             break;
         case OPER_ID_B_AND:
+            ret = a & b;
             break;
         case OPER_ID_B_XOR:
+            ret = a ^ b;
             break;
         case OPER_ID_B_OR:
+            ret = a | b;
             break;
         case OPER_ID_AND:
+            ret = a && b;
             break;
         case OPER_ID_OR:
+            ret = a || b;
             break;
         
         default:
@@ -391,6 +435,8 @@ int operate_internal(EvalContext *e)
 
 int operate(EvalContext *e, Operator *oper)
 {
+    Operator prev_oper;
+    
     if (!oper) {
         // End condition. Perform all operations left.
         operate_internal(e);
@@ -408,7 +454,11 @@ int operate(EvalContext *e, Operator *oper)
         return -1; // Illegal number of operators in stack
     }
 
-    operate_internal(e);
+    if (stack_peek(&e->ns, &prev_oper) < 0)
+        return 0;
+
+    if (oper.prec <= prev_oper.prec)
+        1;
     return 0;
 }
 
