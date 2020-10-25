@@ -95,6 +95,8 @@ typedef enum OperID {
     OPER_ID_MULTIPLICATION_ASSIGN,
     OPER_ID_DIVISION_ASSIGN,
     OPER_ID_REMAINDER_ASSIGN,
+    OPER_ID_NEST,
+    OPER_ID_NEST_CLOSE
 } OperID;
 
 
@@ -224,6 +226,7 @@ static inline int stack_size(Stack *s)
 
 typedef struct EvalContext {
     int active;
+    int scope_offset;
     Stack operstack;
     Stack numstack;
     FILE *f_out;
@@ -233,6 +236,7 @@ typedef struct EvalContext {
 void eval_init(EvalContext *e, FILE *f_in, FILE *f_out)
 {
     e->active = 1;
+    e->scope_offset = 0;
     e->f_in   = f_in;
     e->f_out  = f_out;
     stack_init(&e->ns, sizeof(int), MAXBUF);
@@ -327,11 +331,6 @@ end:
     return start;
 }
 
-enum OperationMode {
-    OPER_MODE_EVALUATE_SCOPE,
-    OPER_MODE_EVALUATE_ALL,
-    OPER_MODE_STEP
-}
 /*
  * if number
  *     push to numstack
@@ -348,117 +347,151 @@ enum OperationMode {
  *
  *
  */
-int operate_internal(EvalContext *e)
+inline int operate_internal(EvalContext *e, Operator *oper)
 {
     Operator *oper;
     int a, b, ret;
-    while (!stack_empty(e->os)) {
-        stack_pop(&e->os, &oper);
-        if (OPERATOR_ISUNARY(oper))
-            stack_pop(&e->ns, &a);
-        else {
-            stack_pop(&e->ns, &a);
-            stack_pop(&e->ns, &b);
-        }
-        switch (oper->id) {
-        case OPER_ID_INCREMENT:
-            ret = a++;
-            break;
-        case OPER_ID_DECREMENT:
-            ret = a--;
-            break;
-        case OPER_ID_B_NOT:
-            ret = ~a;
-            break;
-        case OPER_ID_POWER:
-            ret = pow(a, b)
-            break;
-        case OPER_ID_MULTIPLICATION:
-            ret = a * b;
-            break;
-        case OPER_ID_DIVISION:
-            ret = a / b;
-            break;
-        case OPER_ID_REMAINDER:
-            ret = a % b;
-            break;
-        case OPER_ID_ADDITION:
-            ret = a + b;
-            break;
-        case OPER_ID_SUBTRACTION:
-            ret = a - b;
-            break;
-        case OPER_ID_LSHIFT:
-            ret = a << b;
-            break;
-        case OPER_ID_RSHIFT:
-            ret = a >> b;
-            break;
-        case OPER_ID_LT:
-            ret = a < b;
-            break;
-        case OPER_ID_LTEQ:
-            ret = a <= b;
-            break;
-        case OPER_ID_GT:
-            ret = a > b;
-            break;
-        case OPER_ID_GTEQ:
-            ret = a >= b;
-            break;
-        case OPER_ID_EQ:
-            ret = a == b;
-            break;
-        case OPER_ID_NEQ:
-            ret = a != b;
-            break;
-        case OPER_ID_B_AND:
-            ret = a & b;
-            break;
-        case OPER_ID_B_XOR:
-            ret = a ^ b;
-            break;
-        case OPER_ID_B_OR:
-            ret = a | b;
-            break;
-        case OPER_ID_AND:
-            ret = a && b;
-            break;
-        case OPER_ID_OR:
-            ret = a || b;
-            break;
-        
-        default:
-            fprintf(stderr, "operator not implemented.\n");
+
+    if (OPERATOR_ISUNARY(oper))
+        stack_pop(&e->ns, &a);
+    else {
+        stack_pop(&e->ns, &a);
+        stack_pop(&e->ns, &b);
     }
+
+    switch (oper->id) {
+    case OPER_ID_INCREMENT:
+        ret = a++;
+        break;
+    case OPER_ID_DECREMENT:
+        ret = a--;
+        break;
+    case OPER_ID_B_NOT:
+        ret = ~a;
+        break;
+    case OPER_ID_POWER:
+        ret = pow(a, b)
+        break;
+    case OPER_ID_MULTIPLICATION:
+        ret = a * b;
+        break;
+    case OPER_ID_DIVISION:
+        ret = a / b;
+        break;
+    case OPER_ID_REMAINDER:
+        ret = a % b;
+        break;
+    case OPER_ID_ADDITION:
+        ret = a + b;
+        break;
+    case OPER_ID_SUBTRACTION:
+        ret = a - b;
+        break;
+    case OPER_ID_LSHIFT:
+        ret = a << b;
+        break;
+    case OPER_ID_RSHIFT:
+        ret = a >> b;
+        break;
+    case OPER_ID_LT:
+        ret = a < b;
+        break;
+    case OPER_ID_LTEQ:
+        ret = a <= b;
+        break;
+    case OPER_ID_GT:
+        ret = a > b;
+        break;
+    case OPER_ID_GTEQ:
+        ret = a >= b;
+        break;
+    case OPER_ID_EQ:
+        ret = a == b;
+        break;
+    case OPER_ID_NEQ:
+        ret = a != b;
+        break;
+    case OPER_ID_B_AND:
+        ret = a & b;
+        break;
+    case OPER_ID_B_XOR:
+        ret = a ^ b;
+        break;
+    case OPER_ID_B_OR:
+        ret = a | b;
+        break;
+    case OPER_ID_AND:
+        ret = a && b;
+        break;
+    case OPER_ID_OR:
+        ret = a || b;
+        break;
+    
+    default:
+        fprintf(stderr, "operator not implemented.\n");
+    }
+
+    stack_pop(&e->ns, ret);
+}
+
+// Number of operators in current scope
+inline int oper_scope_size(EvalContext *e) {
+    return stack_size(e->os) - scope_offset;
+}
+
+inline int num_scope_size(EvalContext *e) {
+    return stack_size(e->ns) - scope_offset;
 }
 
 int operate(EvalContext *e, Operator *oper)
 {
-    Operator prev_oper;
-    
+    Operator *prev_oper;
+    int push_operator = 1;
+
     if (!oper) {
         // End condition. Perform all operations left.
-        operate_internal(e);
+        while (!stack_empty(e->os)) {
+            stack_pop(e->os, &oper);
+            operate_internal(e, oper);
+        }
         return 0;
     }
 
-    if (stack_empty(e->os)) {
-        if (OPERATOR_ISUNARY(oper))
-            return -1;
-        stack_push(e->os, oper); // We merely copy the reference to the table.
+    if (oper->id == OPER_ID_NEST_CLOSE){
+        // End condition of nested expression. Perform all operations left.
+        while (!stack_empty(e->os)) {
+            stack_pop(e->os, &oper);
+            operate_internal(e, oper);
+        }
         return 0;
     }
 
-    if (stack_empty(e->ns) && (stack_size(e->os) > 0)) {
-        return -1; // Illegal number of operators in stack
+         
+
+    if (oper->id == OPER_ID_NEST) {
+        stack_push(e->os, oper);
+        return 0;
     }
 
-    if (stack_peek(&e->ns, &prev_oper) < 0)
-        return 0;
+    if (oper_scope_size(e))
+        stack_peek(e->os, &prev_oper);
 
-    if (oper.prec <= prev_oper.prec)
-        1;
+    switch (oper_scope_size(e)) {
+    case 0:
+        if (num_scope_size(e) > 1)
+            return -1; // You cannot have an expression like `1 2`
+        stack_push(e->os, &oper);
+        break;
+
+    default:
+        if (num_scope_size(e) > 1)
+            return -1; // You cannot have an expression like `1 2`
+        if (prev_oper->prec <= oper->prec) { // is the expression something like `1 * 2 +` ?
+            operate_internal(e, prev_oper);
+        }
+        stack_push(e->os, &oper);
+    }
+    
     return 0;
 }
 
