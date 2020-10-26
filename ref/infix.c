@@ -25,7 +25,7 @@
 #define CIS_SYMBOL(x) (CIN_RANGE((x), 0x21, 0x2F) || \
                        CIN_RANGE((x), 0x3A, 0x40) || \
                        CIN_RANGE((x), 0x5B, 0x5E) || \
-                       CIN_RANGE((x), 0x7B, 0x7E)) \
+                       CIN_RANGE((x), 0x7B, 0x7E))
 
 typedef enum CGuess {
     GUESS_UNKNOWN = 0,
@@ -50,6 +50,7 @@ char *guess_strings[] = {
 };
 
 typedef enum Precedence {
+    PRECEDENCE_INVALID = -1,
     PRECEDENCE_UNKNOWN = 0,
     PRECEDENCE_UNARY = 1,
     PRECEDENCE_EXPONENTIAL,
@@ -110,11 +111,20 @@ typedef struct Operator {
 
 
 Operator oper_list[][5] = {
-    ['('] = { { '\0' }, { 0 } },
-    [')'] = { { '\0' }, { 0 } },
+    /*    OPER  OPER_ID                        PRECEDENCE                     */
+    ['('] =
+    {
+        { '\0', OPER_ID_NEST,                  PRECEDENCE_INVALID        },
+        { 0 }
+    },
+    [')'] = {
+        { '\0', OPER_ID_NEST_CLOSE,            PRECEDENCE_INVALID        },
+        { 0 }
+    },
+
     ['['] = { { '\0' }, { 0 } },
     [']'] = { { '\0' }, { 0 } },
-    /*    OPER  OPER_ID                        PRECEDENCE                     */
+
     ['+'] =
     {
         { '\0', OPER_ID_ADDITION,              PRECEDENCE_ADDITIVE       },
@@ -171,7 +181,7 @@ Operator oper_list[][5] = {
     },
 };
 
-#define OPERATOR_ISUNARY(oper) ((oepr).prec == PRECEDENCE_UNARY)
+#define OPERATOR_ISUNARY(oper) ((oper).prec == PRECEDENCE_UNARY)
 
 typedef struct Stack {
     void *data;
@@ -188,11 +198,11 @@ static void stack_init(Stack *s, int elem_size, int nelem)
     s->top = 0;
 }
 
-static inline int stack_pop(Stack *s, void **value)
+static inline int stack_pop(Stack *s, void *value)
 {
     if (s->top == 0)
         return -1;
-    *value = (s->data + s->nelem * (--s->top));
+    memcpy(value, (s->data + s->nelem * (--s->top)), s->elem_size);
 
     return 0;
 }
@@ -209,26 +219,28 @@ static inline int stack_push(Stack *s, void *value)
 {
     if (s->top == MAXBUF + 1)
         return -1;
-    *(s->data + s->nelem * (s->top++)) = value;
+    memcpy((s->data + s->nelem * (s->top++)), value, s->elem_size);
 
     return 0;
 }
 
-static inline int stack_empty(Stack *s)
+static inline int stack_empty(Stack s)
 {
-    return s->top == 0;
+    return s.top == 0;
 }
 
-static inline int stack_size(Stack *s)
+static inline int stack_size(Stack s)
 {
-    return s->top;
+    return s.top;
 }
 
 typedef struct EvalContext {
     int active;
-    int scope_offset;
-    Stack operstack;
-    Stack numstack;
+    int num_scope_offset;
+    int oper_scope_offset;
+    Stack os;
+    Stack ns;
+    Stack nest_stack;
     FILE *f_out;
     FILE *f_in;
 } EvalContext;
@@ -236,7 +248,8 @@ typedef struct EvalContext {
 void eval_init(EvalContext *e, FILE *f_in, FILE *f_out)
 {
     e->active = 1;
-    e->scope_offset = 0;
+    e->num_scope_offset = 0;
+    e->oper_scope_offset = 0;
     e->f_in   = f_in;
     e->f_out  = f_out;
     stack_init(&e->ns, sizeof(int), MAXBUF);
@@ -347,12 +360,11 @@ end:
  *
  *
  */
-inline int operate_internal(EvalContext *e, Operator *oper)
+static inline int operate_internal(EvalContext *e, Operator *oper)
 {
-    Operator *oper;
     int a, b, ret;
 
-    if (OPERATOR_ISUNARY(oper))
+    if (OPERATOR_ISUNARY(*oper))
         stack_pop(&e->ns, &a);
     else {
         stack_pop(&e->ns, &a);
@@ -370,7 +382,7 @@ inline int operate_internal(EvalContext *e, Operator *oper)
         ret = ~a;
         break;
     case OPER_ID_POWER:
-        ret = pow(a, b)
+        ret = pow(a, b);
         break;
     case OPER_ID_MULTIPLICATION:
         ret = a * b;
@@ -431,16 +443,18 @@ inline int operate_internal(EvalContext *e, Operator *oper)
         fprintf(stderr, "operator not implemented.\n");
     }
 
-    stack_pop(&e->ns, ret);
+    stack_push(&e->ns, &ret);
 }
 
 // Number of operators in current scope
-inline int oper_scope_size(EvalContext *e) {
-    return stack_size(e->os) - scope_offset;
+static inline int oper_scope_size(EvalContext *e)
+{
+    return stack_size(e->os) - e->oper_scope_offset;
 }
 
-inline int num_scope_size(EvalContext *e) {
-    return stack_size(e->ns) - scope_offset;
+static inline int num_scope_size(EvalContext *e)
+{
+    return stack_size(e->ns) - e->num_scope_offset;
 }
 
 int operate(EvalContext *e, Operator *oper)
@@ -451,7 +465,7 @@ int operate(EvalContext *e, Operator *oper)
     if (!oper) {
         // End condition. Perform all operations left.
         while (!stack_empty(e->os)) {
-            stack_pop(e->os, &oper);
+            stack_pop(&e->os, &oper);
             operate_internal(e, oper);
         }
         return 0;
@@ -460,27 +474,26 @@ int operate(EvalContext *e, Operator *oper)
     if (oper->id == OPER_ID_NEST_CLOSE){
         // End condition of nested expression. Perform all operations left.
         while (!stack_empty(e->os)) {
-            stack_pop(e->os, &oper);
+            stack_pop(&e->os, &oper);
             operate_internal(e, oper);
         }
         return 0;
     }
 
-         
-
     if (oper->id == OPER_ID_NEST) {
-        stack_push(e->os, oper);
+        stack_push(&e->os, oper);
+        e->num_scope_offset = stack_push(&e->os, oper);
         return 0;
     }
 
     if (oper_scope_size(e))
-        stack_peek(e->os, &prev_oper);
+        stack_peek(&e->os, &prev_oper);
 
     switch (oper_scope_size(e)) {
     case 0:
         if (num_scope_size(e) > 1)
             return -1; // You cannot have an expression like `1 2`
-        stack_push(e->os, &oper);
+        stack_push(&e->os, &oper);
         break;
 
     default:
@@ -489,7 +502,7 @@ int operate(EvalContext *e, Operator *oper)
         if (prev_oper->prec <= oper->prec) { // is the expression something like `1 * 2 +` ?
             operate_internal(e, prev_oper);
         }
-        stack_push(e->os, &oper);
+        stack_push(&e->os, &oper);
     }
     
     return 0;
@@ -523,7 +536,7 @@ void eval(EvalContext *e, char *buf)
         case GUESS_OPERATOR:
             printf("operator found: 0x%x id: %d prec: %d\n", oper.extra_symbol,
                    oper.id, oper.prec);
-            stack_push(
+            /*
             switch (operate(e, &oper)) {
             case -1:
                 fprintf(stderr, "stack underflow\n");
@@ -533,6 +546,7 @@ void eval(EvalContext *e, char *buf)
                 fprintf(stderr, "unrecognised operand\n");
                 break;
             }
+            */
             break;
 
         case GUESS_INTEGER:
