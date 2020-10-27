@@ -207,11 +207,12 @@ static inline int stack_pop(Stack *s, void *value)
     return 0;
 }
 
-static inline int stack_peek(Stack *s, void **value)
+static inline int stack_peek(Stack *s, void *value)
 {
+    void **value2 = (void **) value;
     if (s->top == 0)
         return -1;
-    *value = (s->data + s->nelem * (s->top - 1));
+    *value2 = (s->data + s->nelem * (s->top - 1));
     return 0;
 }
 
@@ -360,7 +361,7 @@ end:
  *
  *
  */
-static inline int operate_internal(EvalContext *e, Operator *oper)
+static inline void operate_internal(EvalContext *e, Operator *oper)
 {
     int a, b, ret;
 
