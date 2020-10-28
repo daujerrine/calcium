@@ -292,25 +292,25 @@ char *next_token(char *c, int *size, CGuess *guess, Operator *oper)
             if (*c == '.' && *guess == GUESS_INTEGER) { // Is this possibly a float?
                 float_hint = 1; // If so, store this "hinting"
             } else if (*guess && *guess == GUESS_OPERATOR) {
-                printf("enter");
+                // printf("enter");
                 for (i = 1; oper_list[curr_oper][i].extra_symbol; i++) {
                     if (oper_list[curr_oper][i].extra_symbol == *c) {
                         c++;
-                        printf("ending second\n");
+                        // printf("ending second\n");
                         *oper = oper_list[curr_oper][i];
                         goto end;
                     }
-                    printf("iter\n");
+                    // printf("iter\n");
                 }
-                printf("ending first\n");
+                // printf("ending first\n");
                 *oper = oper_list[curr_oper][0];
                 goto end;
 
             } else if (*guess && *guess != GUESS_OPERATOR) { // Did we just read an entire chunk?
-                printf("enter 2\n");
+                // printf("enter 2\n");
                 goto end;
             } else if (!*guess) { // Is this the continuation or the start of a chunk?
-                printf("enter else\n");
+                // printf("enter else\n");
                 start = c;
                 curr_oper = *c;
                 /*
@@ -444,6 +444,8 @@ static inline void operate_internal(EvalContext *e, Operator *oper)
         fprintf(stderr, "operator not implemented.\n");
     }
 
+    printf("operation result: %d\n", ret);
+
     stack_push(&e->ns, &ret);
 }
 
@@ -464,6 +466,7 @@ int operate(EvalContext *e, Operator *oper)
     int push_operator = 1;
 
     if (!oper) {
+        printf("oper end\n");
         // End condition. Perform all operations left.
         while (!stack_empty(e->os)) {
             stack_pop(&e->os, &oper);
@@ -472,7 +475,8 @@ int operate(EvalContext *e, Operator *oper)
         return 0;
     }
 
-    if (oper->id == OPER_ID_NEST_CLOSE){
+    if (oper->id == OPER_ID_NEST_CLOSE) {
+        printf("oper nest close\n");
         // End condition of nested expression. Perform all operations left.
         while (!stack_empty(e->os)) {
             stack_pop(&e->os, &oper);
@@ -482,24 +486,27 @@ int operate(EvalContext *e, Operator *oper)
     }
 
     if (oper->id == OPER_ID_NEST) {
+        printf("oper nest open\n");
         stack_push(&e->os, oper);
         e->num_scope_offset = stack_push(&e->os, oper);
         return 0;
     }
 
-    if (oper_scope_size(e))
+    if (oper_scope_size(e)) {
+        printf("oper scope > 1\n");
         stack_peek(&e->os, &prev_oper);
+    }
 
     switch (oper_scope_size(e)) {
     case 0:
+        printf("oper scope == 0\n");
         if (num_scope_size(e) > 1)
             return -1; // You cannot have an expression like `1 2`
         stack_push(&e->os, &oper);
         break;
 
     default:
-        if (num_scope_size(e) > 1)
-            return -1; // You cannot have an expression like `1 2`
+        printf("oper scope > 0\n");
         if (prev_oper->prec <= oper->prec) { // is the expression something like `1 * 2 +` ?
             operate_internal(e, prev_oper);
         }
@@ -537,7 +544,7 @@ void eval(EvalContext *e, char *buf)
         case GUESS_OPERATOR:
             printf("operator found: 0x%x id: %d prec: %d\n", oper.extra_symbol,
                    oper.id, oper.prec);
-            /*
+            
             switch (operate(e, &oper)) {
             case -1:
                 fprintf(stderr, "stack underflow\n");
@@ -547,25 +554,28 @@ void eval(EvalContext *e, char *buf)
                 fprintf(stderr, "unrecognised operand\n");
                 break;
             }
-            */
+            
             break;
 
         case GUESS_INTEGER:
             numi = atoi(start);
-            //if (stack_push(&e->s, numi) < 0)
-            //    fprintf(stderr, "stack overflow\n");
+            if (stack_push(&e->ns, &numi) < 0)
+               fprintf(stderr, "stack overflow\n");
             break;
 
         case GUESS_FLOAT:
             numf = atof(start);
-            //if (stack_push(&e->s, (int) numf) < 0)
-            //    fprintf(stderr, "stack overflow\n");
+            numi = numf;
+            if (stack_push(&e->ns, &numi) < 0)
+               fprintf(stderr, "stack overflow\n");
             break;
 
         default:
             fprintf(stderr, "erroneous input\n");
         }
     }
+    operate(e, NULL);
+    printf("Top of stack: %d\n", *((int *) e->ns.data));
 }
 
 int main(int argc, char **argv)
