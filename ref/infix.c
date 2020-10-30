@@ -209,10 +209,9 @@ static inline int stack_pop(Stack *s, void *value)
 
 static inline int stack_peek(Stack *s, void *value)
 {
-    void **value2 = (void **) value;
     if (s->top == 0)
         return -1;
-    *value2 = (s->data + s->nelem * (s->top - 1));
+    memcpy(value, (s->data + s->nelem * (s->top - 1)), s->elem_size);
     return 0;
 }
 
@@ -370,6 +369,7 @@ static inline void operate_internal(EvalContext *e, Operator *oper)
     else {
         stack_pop(&e->ns, &a);
         stack_pop(&e->ns, &b);
+        printf("popped: %d %d id = %d\n", a, b, oper->id);
     }
 
     switch (oper->id) {
@@ -441,7 +441,7 @@ static inline void operate_internal(EvalContext *e, Operator *oper)
         break;
     
     default:
-        fprintf(stderr, "operator not implemented.\n");
+        fprintf(stderr, "operator not implemented : %d\n", oper->id);
     }
 
     printf("operation result: %d\n", ret);
@@ -469,6 +469,7 @@ int operate(EvalContext *e, Operator *oper)
         printf("oper end\n");
         // End condition. Perform all operations left.
         while (!stack_empty(e->os)) {
+            printf("%d | ", e->os.top);
             stack_pop(&e->os, &oper);
             operate_internal(e, oper);
         }
@@ -493,22 +494,22 @@ int operate(EvalContext *e, Operator *oper)
     }
 
     if (oper_scope_size(e)) {
-        printf("oper scope > 1\n");
         stack_peek(&e->os, &prev_oper);
+        printf("oper scope > 1 prev_oper = %d\n", prev_oper->id);
     }
 
     switch (oper_scope_size(e)) {
     case 0:
         printf("oper scope == 0\n");
-        if (num_scope_size(e) > 1)
-            return -1; // You cannot have an expression like `1 2`
         stack_push(&e->os, &oper);
         break;
 
     default:
         printf("oper scope > 0\n");
         if (prev_oper->prec <= oper->prec) { // is the expression something like `1 * 2 +` ?
+            printf("prev_oper mode id = %d\n", prev_oper->id);
             operate_internal(e, prev_oper);
+            stack_pop(&e->os, &prev_oper);
         }
         stack_push(&e->os, &oper);
     }
@@ -522,7 +523,7 @@ void eval(EvalContext *e, char *buf)
     CGuess guess;
     Operator oper;
     int size;
-
+    int top;
     int numi;
     double numf;
 
@@ -575,7 +576,7 @@ void eval(EvalContext *e, char *buf)
         }
     }
     operate(e, NULL);
-    printf("Top of stack: %d\n", *((int *) e->ns.data));
+    stack_pop(&e->ns, &top);
 }
 
 int main(int argc, char **argv)
