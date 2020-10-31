@@ -256,7 +256,7 @@ void eval_init(EvalContext *e, FILE *f_in, FILE *f_out)
     stack_init(&e->os, sizeof(Operator *), MAXBUF);
 }
 
-char *next_token(char *c, int *size, CGuess *guess, Operator *oper)
+char *next_token(char *c, int *size, CGuess *guess, Operator **oper)
 {
     *guess         = GUESS_UNKNOWN;
     char *start    = NULL;
@@ -296,13 +296,13 @@ char *next_token(char *c, int *size, CGuess *guess, Operator *oper)
                     if (oper_list[curr_oper][i].extra_symbol == *c) {
                         c++;
                         // printf("ending second\n");
-                        *oper = oper_list[curr_oper][i];
+                        *oper = &oper_list[curr_oper][i];
                         goto end;
                     }
                     // printf("iter\n");
                 }
                 // printf("ending first\n");
-                *oper = oper_list[curr_oper][0];
+                *oper = &oper_list[curr_oper][0];
                 goto end;
 
             } else if (*guess && *guess != GUESS_OPERATOR) { // Did we just read an entire chunk?
@@ -316,7 +316,7 @@ char *next_token(char *c, int *size, CGuess *guess, Operator *oper)
                  * If this is only char, this is most definitely the operator
                  * intended
                  */
-                *oper = oper_list[curr_oper][0]; 
+                *oper = &oper_list[curr_oper][0]; 
                 *guess = GUESS_OPERATOR;
             }
         } else if (CIS_ALPHA(*c)) { // alphabetical
@@ -367,8 +367,8 @@ static inline void operate_internal(EvalContext *e, Operator *oper)
     if (OPERATOR_ISUNARY(*oper))
         stack_pop(&e->ns, &a);
     else {
-        stack_pop(&e->ns, &a);
         stack_pop(&e->ns, &b);
+        stack_pop(&e->ns, &a);
         printf("popped: %d %d id = %d\n", a, b, oper->id);
     }
 
@@ -521,7 +521,7 @@ void eval(EvalContext *e, char *buf)
 {
     char *start, *curr = buf;
     CGuess guess;
-    Operator oper;
+    Operator *oper;
     int size;
     int top;
     int numi;
@@ -543,10 +543,10 @@ void eval(EvalContext *e, char *buf)
             return;
 
         case GUESS_OPERATOR:
-            printf("operator found: 0x%x id: %d prec: %d\n", oper.extra_symbol,
-                   oper.id, oper.prec);
+            printf("operator found: 0x%x id: %d prec: %d\n", oper->extra_symbol,
+                   oper->id, oper->prec);
             
-            switch (operate(e, &oper)) {
+            switch (operate(e, oper)) {
             case -1:
                 fprintf(stderr, "stack underflow\n");
                 break;
