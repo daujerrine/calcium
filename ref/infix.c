@@ -238,8 +238,8 @@ typedef struct EvalContext {
     int active;
     int num_scope_offset;
     int oper_scope_offset;
-    Stack os;
-    Stack ns;
+    Stack os; // Operator stack
+    Stack ns; // Number Stack
     Stack nest_stack;
     FILE *f_out;
     FILE *f_in;
@@ -254,6 +254,7 @@ void eval_init(EvalContext *e, FILE *f_in, FILE *f_out)
     e->f_out  = f_out;
     stack_init(&e->ns, sizeof(int), MAXBUF);
     stack_init(&e->os, sizeof(Operator *), MAXBUF);
+    stack_init(&e->nest_stack, sizeof(int), MAXBUF);
 }
 
 char *next_token(char *c, int *size, CGuess *guess, Operator **oper)
@@ -520,7 +521,7 @@ int operate(EvalContext *e, Operator *oper)
 void eval(EvalContext *e, char *buf)
 {
     char *start, *curr = buf;
-    CGuess guess;
+    CGuess guess, prev_guess = -1;
     Operator *oper;
     int size;
     int top;
@@ -559,12 +560,21 @@ void eval(EvalContext *e, char *buf)
             break;
 
         case GUESS_INTEGER:
+            // TODO manage vars better below
+            if (prev_guess == guess) {
+                fprintf(stderr, "2 consequtive ints\n");
+                return;
+            }
             numi = atoi(start);
             if (stack_push(&e->ns, &numi) < 0)
                fprintf(stderr, "stack overflow\n");
             break;
 
         case GUESS_FLOAT:
+            if (prev_guess == guess) {
+                fprintf(stderr, "2 consequtive floats\n");
+                return;
+            }
             numf = atof(start);
             numi = numf;
             if (stack_push(&e->ns, &numi) < 0)
@@ -574,6 +584,8 @@ void eval(EvalContext *e, char *buf)
         default:
             fprintf(stderr, "erroneous input\n");
         }
+
+        prev_guess = guess;
     }
     operate(e, NULL);
     stack_pop(&e->ns, &top);
