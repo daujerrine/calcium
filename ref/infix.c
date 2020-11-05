@@ -453,6 +453,7 @@ static inline void operate_internal(EvalContext *e, Operator *oper)
 // Number of operators in current scope
 static inline int oper_scope_size(EvalContext *e)
 {
+    printf(">***%d\n", stack_size(e->os) - e->oper_scope_offset);
     return stack_size(e->os) - e->oper_scope_offset;
 }
 
@@ -482,6 +483,8 @@ int operate(EvalContext *e, Operator *oper)
         // End condition of nested expression. Perform all operations left.
         while (!stack_empty(e->os)) {
             stack_pop(&e->os, &oper);
+            if (oper->id == OPER_ID_NEST)
+                break;
             operate_internal(e, oper);
         }
         return 0;
@@ -490,6 +493,8 @@ int operate(EvalContext *e, Operator *oper)
     if (oper->id == OPER_ID_NEST) {
         printf("oper nest open\n");
         stack_push(&e->os, oper);
+        e->oper_scope_offset = e->os.top;
+        printf("><><>%d\n",e->os.top);
         e->num_scope_offset = stack_push(&e->os, oper);
         return 0;
     }
