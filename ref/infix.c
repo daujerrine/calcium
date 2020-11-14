@@ -236,11 +236,10 @@ static inline int stack_size(Stack s)
 
 typedef struct EvalContext {
     int active;
-    int num_scope_offset;
-    int oper_scope_offset;
+    Stack num_scope_offset;
+    Stack oper_scope_offset;
     Stack os; // Operator stack
     Stack ns; // Number Stack
-    Stack nest_stack;
     FILE *f_out;
     FILE *f_in;
 } EvalContext;
@@ -248,13 +247,12 @@ typedef struct EvalContext {
 void eval_init(EvalContext *e, FILE *f_in, FILE *f_out)
 {
     e->active = 1;
-    e->num_scope_offset = 0;
-    e->oper_scope_offset = 0;
     e->f_in   = f_in;
     e->f_out  = f_out;
     stack_init(&e->ns, sizeof(int), MAXBUF);
     stack_init(&e->os, sizeof(Operator *), MAXBUF);
-    stack_init(&e->nest_stack, sizeof(int), MAXBUF);
+    stack_init(&e->num_scope_offset, sizeof(int), MAXBUF);
+    stack_init(&e->oper_scope_offset, sizeof(int), MAXBUF);
 }
 
 char *next_token(char *c, int *size, CGuess *guess, Operator **oper)
@@ -453,13 +451,17 @@ static inline void operate_internal(EvalContext *e, Operator *oper)
 // Number of operators in current scope
 static inline int oper_scope_size(EvalContext *e)
 {
-    printf(">***%d\n", stack_size(e->os) - e->oper_scope_offset);
-    return stack_size(e->os) - e->oper_scope_offset;
+    int v;
+    stack_peek(&e->oper_scope_offset, &v);
+    printf(">***%d %d\n", stack_size(e->os), v);
+    return stack_size(e->os) - v;
 }
 
 static inline int num_scope_size(EvalContext *e)
 {
-    return stack_size(e->ns) - e->num_scope_offset;
+    int v;
+    stack_peek(&e->num_scope_offset, &v);
+    return stack_size(e->ns) - v;
 }
 
 int operate(EvalContext *e, Operator *oper)
@@ -487,15 +489,15 @@ int operate(EvalContext *e, Operator *oper)
                 break;
             operate_internal(e, oper);
         }
-        return 0;
     }
 
     if (oper->id == OPER_ID_NEST) {
+        int v = stack_push(&e->os, oper);
         printf("oper nest open\n");
         stack_push(&e->os, oper);
-        e->oper_scope_offset = e->os.top;
+        stack_push(&e->oper_scope_offset, &e->os.top);
         printf("><><>%d\n",e->os.top);
-        e->num_scope_offset = stack_push(&e->os, oper);
+        stack_push(&e->num_scope_offset, &v);
         return 0;
     }
 
