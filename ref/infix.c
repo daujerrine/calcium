@@ -492,6 +492,7 @@ int operate(EvalContext *e, Operator *oper)
         printf("oper enter: %d\n", oper->id);
     }
 
+    // Closing Bracket?
     if (oper->id == OPER_ID_NEST_CLOSE) {
         printf("oper nest close\n");
         // End condition of nested expression. Perform all operations left.
@@ -505,6 +506,7 @@ int operate(EvalContext *e, Operator *oper)
         }
     }
 
+    // Opening Bracket?
     if (oper->id == OPER_ID_NEST) {
         int v = stack_push(&e->os, &oper);
         printf("oper nest open\n");
@@ -514,12 +516,15 @@ int operate(EvalContext *e, Operator *oper)
         return 0;
     }
 
+    // Is there a previous operator?
     if (oper_scope_size(e)) {
         stack_peek(&e->os, &prev_oper);
         printf("oper scope > 1 prev_oper = %d\n", prev_oper->id);
     }
 
     switch (oper_scope_size(e)) {
+    // Push the operator. We need to look for the next operator before dealing
+    // with this one.
     case 0:
         printf("oper scope == 0\n");
         stack_push(&e->os, &oper);
@@ -527,11 +532,14 @@ int operate(EvalContext *e, Operator *oper)
 
     default:
         printf("oper scope > 0\n");
+        // Does previous operator have a higher precendence? If so, operate it
+        // first
         if (prev_oper->prec <= oper->prec) { // is the expression something like `1 * 2 +` ?
             printf("prev_oper prec >= curr prec with oper_id = %d\n", prev_oper->id);
             operate_internal(e, prev_oper);
             stack_pop(&e->os, &prev_oper);
         }
+        // Push the current operator
         stack_push(&e->os, &oper);
     }
     
@@ -548,6 +556,7 @@ void eval(EvalContext *e, char *buf)
     int numi;
     double numf;
     {
+        // Push initial offset: 0.
         int temp = 0;
         stack_push(&e->oper_scope_offset, &temp);
     }
@@ -612,6 +621,9 @@ void eval(EvalContext *e, char *buf)
         prev_guess = guess;
     }
     operate(e, NULL);
+
+    // Pop the stack to get the result. By the end of an eval, there should
+    // only be one number in the num stack.
     if (!stack_empty(e->ns)) {
         stack_pop(&e->ns, &top);
         printf("answer = %d\n", top);
