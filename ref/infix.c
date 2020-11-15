@@ -200,8 +200,10 @@ static void stack_init(Stack *s, int elem_size, int nelem)
 
 static inline int stack_pop(Stack *s, void *value)
 {
-    if (s->top == 0)
+    if (s->top == 0) {
+        printf("UNDERFLOW\n");
         return -1;
+    }
     memcpy(value, (s->data + s->nelem * (--s->top)), s->elem_size);
 
     return 0;
@@ -209,16 +211,20 @@ static inline int stack_pop(Stack *s, void *value)
 
 static inline int stack_peek(Stack *s, void *value)
 {
-    if (s->top == 0)
+    if (s->top == 0) {
+        printf("EMPTY");
         return -1;
+    }
     memcpy(value, (s->data + s->nelem * (s->top - 1)), s->elem_size);
     return 0;
 }
 
 static inline int stack_push(Stack *s, void *value)
 {
-    if (s->top == MAXBUF + 1)
+    if (s->top == MAXBUF + 1) {
+        printf("OVERFLOW\n");
         return -1;
+    }
     memcpy((s->data + s->nelem * (s->top++)), value, s->elem_size);
 
     return 0;
@@ -478,6 +484,8 @@ int operate(EvalContext *e, Operator *oper)
             operate_internal(e, oper);
         }
         return 0;
+    } else {
+        printf("oper enter: %d\n", oper->id);
     }
 
     if (oper->id == OPER_ID_NEST_CLOSE) {
@@ -492,9 +500,8 @@ int operate(EvalContext *e, Operator *oper)
     }
 
     if (oper->id == OPER_ID_NEST) {
-        int v = stack_push(&e->os, oper);
+        int v = stack_push(&e->os, &oper);
         printf("oper nest open\n");
-        stack_push(&e->os, oper);
         stack_push(&e->oper_scope_offset, &e->os.top);
         printf("><><>%d\n",e->os.top);
         stack_push(&e->num_scope_offset, &v);
