@@ -201,7 +201,7 @@ static void stack_init(Stack *s, int elem_size, int nelem)
 static inline int stack_pop(Stack *s, void *value)
 {
     if (s->top == 0) {
-        printf("UNDERFLOW\n");
+        printf("BUG: UNDERFLOW\n");
         return -1;
     }
     memcpy(value, (s->data + s->nelem * (--s->top)), s->elem_size);
@@ -212,7 +212,7 @@ static inline int stack_pop(Stack *s, void *value)
 static inline int stack_peek(Stack *s, void *value)
 {
     if (s->top == 0) {
-        printf("EMPTY");
+        printf("BUG: EMPTY\n");
         return -1;
     }
     memcpy(value, (s->data + s->nelem * (s->top - 1)), s->elem_size);
@@ -222,7 +222,7 @@ static inline int stack_peek(Stack *s, void *value)
 static inline int stack_push(Stack *s, void *value)
 {
     if (s->top == MAXBUF + 1) {
-        printf("OVERFLOW\n");
+        printf("BUG: OVERFLOW\n");
         return -1;
     }
     memcpy((s->data + s->nelem * (s->top++)), value, s->elem_size);
@@ -374,7 +374,7 @@ static inline void operate_internal(EvalContext *e, Operator *oper)
     else {
         stack_pop(&e->ns, &b);
         stack_pop(&e->ns, &a);
-        printf("popped: %d %d id = %d\n", a, b, oper->id);
+        printf("operating: %d %d with oper_id = %d\n", a, b, oper->id);
     }
 
     switch (oper->id) {
@@ -454,15 +454,18 @@ static inline void operate_internal(EvalContext *e, Operator *oper)
     stack_push(&e->ns, &ret);
 }
 
-// Number of operators in current scope
+// Number of operators in current nesting level
+// (TODO should be renamed as such)
 static inline int oper_scope_size(EvalContext *e)
 {
     int v;
     stack_peek(&e->oper_scope_offset, &v);
-    printf(">***%d %d\n", stack_size(e->os), v);
+    printf("oper_nest_size: %d - %d\n", stack_size(e->os), v);
     return stack_size(e->os) - v;
 }
 
+// Number of numbers in current nesting level
+// Unary operators have not been implemented, and thus is currently useless.
 static inline int num_scope_size(EvalContext *e)
 {
     int v;
@@ -479,10 +482,11 @@ int operate(EvalContext *e, Operator *oper)
         printf("oper end\n");
         // End condition. Perform all operations left.
         while (!stack_empty(e->os)) {
-            printf("%d | ", e->os.top);
+            printf("oper top: %d\n", e->os.top);
             stack_pop(&e->os, &oper);
             operate_internal(e, oper);
         }
+        printf("exiting\n");
         return 0;
     } else {
         printf("oper enter: %d\n", oper->id);
@@ -493,8 +497,10 @@ int operate(EvalContext *e, Operator *oper)
         // End condition of nested expression. Perform all operations left.
         while (!stack_empty(e->os)) {
             stack_pop(&e->os, &oper);
-            if (oper->id == OPER_ID_NEST)
-                break;
+            if (oper->id == OPER_ID_NEST) {
+                printf("bracket processed\n");
+                return 0;
+            }
             operate_internal(e, oper);
         }
     }
@@ -503,7 +509,7 @@ int operate(EvalContext *e, Operator *oper)
         int v = stack_push(&e->os, &oper);
         printf("oper nest open\n");
         stack_push(&e->oper_scope_offset, &e->os.top);
-        printf("><><>%d\n",e->os.top);
+        printf("oper top = %d\n",e->os.top);
         stack_push(&e->num_scope_offset, &v);
         return 0;
     }
@@ -522,7 +528,7 @@ int operate(EvalContext *e, Operator *oper)
     default:
         printf("oper scope > 0\n");
         if (prev_oper->prec <= oper->prec) { // is the expression something like `1 * 2 +` ?
-            printf("prev_oper mode id = %d\n", prev_oper->id);
+            printf("prev_oper prec >= curr prec with oper_id = %d\n", prev_oper->id);
             operate_internal(e, prev_oper);
             stack_pop(&e->os, &prev_oper);
         }
@@ -541,11 +547,15 @@ void eval(EvalContext *e, char *buf)
     int top;
     int numi;
     double numf;
-
+    {
+        int temp = 0;
+        stack_push(&e->oper_scope_offset, &temp);
+    }
     while ((start = next_token(curr, &size, &guess, &oper)) != NULL) {
-        fprintf(e->f_out, "%d\t%d\t%s\t", (int) (start - buf),
-                                          (int) (start - buf) + size,
-                                          guess_strings[guess]);
+        fprintf(e->f_out, "token: start = %d stop = %d type = %s val = ",
+                    (int) (start - buf),
+                    (int) (start - buf) + size,
+                    guess_strings[guess]);
         fwrite(start, 1, size, e->f_out);
         fprintf(e->f_out, "\n");
         curr = start + size;
@@ -558,7 +568,7 @@ void eval(EvalContext *e, char *buf)
             return;
 
         case GUESS_OPERATOR:
-            printf("operator found: 0x%x id: %d prec: %d\n", oper->extra_symbol,
+            printf("operator found: second char = 0x%x id = %d prec = %d\n", oper->extra_symbol,
                    oper->id, oper->prec);
             
             switch (operate(e, oper)) {
@@ -602,7 +612,11 @@ void eval(EvalContext *e, char *buf)
         prev_guess = guess;
     }
     operate(e, NULL);
-    stack_pop(&e->ns, &top);
+    if (!stack_empty(e->ns)) {
+        stack_pop(&e->ns, &top);
+        printf("answer = %d\n", top);
+    } else
+        printf("answer = nil\n");
 }
 
 int main(int argc, char **argv)
