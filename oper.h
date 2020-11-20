@@ -32,39 +32,135 @@
  * '+' '-' '*' '/' '>' '<' '.' '!' '@' '#' '$' '%' '^' '&' '|' '~'
  */
 
-typedef enum CaOperatorProperties {
-    CA_ASSOC_LEFT = 0,
-    CA_ASSOC_RIGHT,
-    
-    CA_ASSIGNMENT = 0x1000
-    CA_CONDITIONAL,  /// Not implemented yet.
-    CA_ADDITIVE,
-    CA_MULTIPLICATIVE,
-    CA_BITWISE,
-    CA_EXPONENTIAL  /// Not implemented yet.
-}
+typedef enum CaOperPrec {
+    PRECEDENCE_INVALID = -1,
+    PRECEDENCE_UNKNOWN = 0,
+    PRECEDENCE_UNARY = 1,
+    PRECEDENCE_EXPONENTIAL,
+    PRECEDENCE_MULTIPLICATIVE,
+    PRECEDENCE_ADDITIVE,
+    PRECEDENCE_SHIFT,
+    PRECEDENCE_COMPARISON,
+    PRECEDENCE_EQUALITY,
+    PRECEDENCE_B_AND,
+    PRECEDENCE_B_XOR,
+    PRECEDENCE_B_OR,
+    PRECEDENCE_AND,
+    PRECEDENCE_OR,
+    PRECEDENCE_ASSIGNMENT
+} CaOperPrec;
 
-/// Describes an operator
+typedef enum CaOperID {
+    OPER_ID_INCREMENT = 0,
+    OPER_ID_DECREMENT,
+    OPER_ID_B_NOT,
+    OPER_ID_POWER,
+    OPER_ID_MULTIPLICATION,
+    OPER_ID_DIVISION,
+    OPER_ID_REMAINDER,
+    OPER_ID_ADDITION,
+    OPER_ID_SUBTRACTION,
+    OPER_ID_LSHIFT,
+    OPER_ID_RSHIFT,
+    OPER_ID_LT,
+    OPER_ID_LTEQ,
+    OPER_ID_GT,
+    OPER_ID_GTEQ,
+    OPER_ID_EQ,
+    OPER_ID_NEQ,
+    OPER_ID_B_AND,
+    OPER_ID_B_XOR,
+    OPER_ID_B_OR,
+    OPER_ID_AND,
+    OPER_ID_OR,
+    OPER_ID_ASSIGN,
+    OPER_ID_ADDITION_ASSIGN,
+    OPER_ID_SUBTRACTION_ASSIGN,
+    OPER_ID_MULTIPLICATION_ASSIGN,
+    OPER_ID_DIVISION_ASSIGN,
+    OPER_ID_REMAINDER_ASSIGN,
+    OPER_ID_NEST,
+    OPER_ID_NEST_CLOSE
+} CaOperID;
+
+
+/* TODO Rearrange extra symbol to end */
+
 typedef struct CaOperator {
-    char symbol[CA_MAX_OPER_LEN]; /// Symbol string of ooperator
-    uint8_t assoc;  /// Associavity of operator
-    uint16_t prec;  /// Precedence of the operator. Higher the number, higher
-                    /// the priority.
-    CaError (*func)(ca_result *r, ca_var *a, ca_var *b, CaVar_TYPE vt);
-} CaOperator;
+    char extra_symbol;
+    CaOperID id;
+    CaOperPrec prec;
+} Operator;
 
-// Char arrays are used to prevent null chars
-CaOperator ca_oper_list[] {
-    {{'='}, CA_ASSOC_RIGHT, CA_ASSIGNMENT, &ca_std_assign},
-    
-    {{'+'}, CA_ASSOC_LEFT, CA_ADDITIVE, &ca_std_add},
-    {{'-'}, CA_ASSOC_LEFT, CA_ADDITIVE, &ca_std_sub},
 
-    {{'*'}, CA_ASSOC_LEFT, CA_MULTIPLICATIVE, &ca_std_mul},
-    {{'/'}, CA_ASSOC_LEFT, CA_MULTIPLICATIVE, &ca_std_div},
-    {{'%'}, CA_ASSOC_LEFT, CA_MULTIPLICATIVE, &ca_std_mod},
+CaOperator oper_list[][5] = {
+    /*    OPER  OPER_ID                        PRECEDENCE                     */
+    ['('] =
+    {
+        { '\0', OPER_ID_NEST,                  PRECEDENCE_INVALID        },
+        { 0 }
+    },
+    [')'] = {
+        { '\0', OPER_ID_NEST_CLOSE,            PRECEDENCE_INVALID        },
+        { 0 }
+    },
 
-   // {{'*', '*'}, CA_ASSOC_LEFT, CA_EXPONENTIAL}, Not implemented yet
-}
+    ['['] = { { '\0' }, { 0 } },
+    [']'] = { { '\0' }, { 0 } },
 
+    ['+'] =
+    {
+        { '\0', OPER_ID_ADDITION,              PRECEDENCE_ADDITIVE       },
+        { '+',  OPER_ID_INCREMENT,             PRECEDENCE_UNARY          },
+        { '=',  OPER_ID_ADDITION_ASSIGN,       PRECEDENCE_ASSIGNMENT     },
+        { 0 }                                  
+    },                                         
+    ['-'] =                                    
+    {                                          
+        { '\0', OPER_ID_SUBTRACTION,           PRECEDENCE_ADDITIVE       },
+        { '-',  OPER_ID_DECREMENT,             PRECEDENCE_UNARY          },
+        { '=',  OPER_ID_SUBTRACTION_ASSIGN,    PRECEDENCE_ASSIGNMENT     },
+        { 0 }
+    },
+    ['*'] =
+    {
+        { '\0', OPER_ID_MULTIPLICATION,        PRECEDENCE_MULTIPLICATIVE },
+        { '*',  OPER_ID_POWER,                 PRECEDENCE_EXPONENTIAL    },
+        { '=',  OPER_ID_MULTIPLICATION_ASSIGN, PRECEDENCE_ASSIGNMENT     },
+        { 0 }
+    },
+    ['/'] =
+    {
+        { '\0', OPER_ID_DIVISION,              PRECEDENCE_MULTIPLICATIVE },
+        { '/',  OPER_ID_DIVISION,              PRECEDENCE_MULTIPLICATIVE },
+        { '=',  OPER_ID_DIVISION_ASSIGN,       PRECEDENCE_ASSIGNMENT     },
+        { 0 }
+    },
+    ['>'] =
+    {
+        { '\0', OPER_ID_GT,                    PRECEDENCE_COMPARISON     },
+        { '=',  OPER_ID_GTEQ,                  PRECEDENCE_COMPARISON     },
+        { '>',  OPER_ID_RSHIFT,                PRECEDENCE_SHIFT          },
+        { 0 }
+    },
+    ['<'] =
+    {
+        { '\0', OPER_ID_LT,                    PRECEDENCE_COMPARISON     },
+        { '=',  OPER_ID_LTEQ,                  PRECEDENCE_COMPARISON     },
+        { '<',  OPER_ID_LSHIFT,                PRECEDENCE_SHIFT          },
+        { 0 }
+    },
+    ['='] =
+    {
+        { '\0', OPER_ID_ASSIGN,                PRECEDENCE_ASSIGNMENT     },
+        { '=',  OPER_ID_EQ,                    PRECEDENCE_EQUALITY       },
+        { 0 }
+    },
+    ['%'] =
+    {
+        { '\0', OPER_ID_REMAINDER,             PRECEDENCE_MULTIPLICATIVE },
+        { '=',  OPER_ID_REMAINDER_ASSIGN,      PRECEDENCE_ASSIGNMENT     },
+        { 0 }
+    },
+};
 #endif

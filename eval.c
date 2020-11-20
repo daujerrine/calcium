@@ -28,6 +28,17 @@
                       IN_RANGE((x), 0x7B, 0x7E))
 
 
+char *guess_strings[] = {
+    [GUESS_UNKNOWN]        = "unknown",
+    [GUESS_ERROR]          = "error",
+    [GUESS_NEED_MORE_DATA] = "incomplete",
+    [GUESS_INTEGER]        = "int",
+    [GUESS_FLOAT]          = "float",
+    [GUESS_OPERATOR]       = "oper",
+    [GUESS_NOUN]           = "noun",
+    [GUESS_STRING]         = "string"
+};
+
 CaExpr *ca_tokenize(const char *data)
 {
     ca_expr *e = calloc(1, sizeof(ca_expr));
@@ -45,14 +56,92 @@ CaExpr *ca_tokenize(const char *data)
 * \param end The end of the token. (inclusive)
 * \return An error code.
 */
-CaError ca_next_token(CaExpr *expr, CaType *guess, CaSize *start, 
-                      CaSize *length)
+CaError *ca_next_token(CaExpr *expr, int *size, CaGuess *guess, CaOperator **oper)
 {
-    char loop = 1;
-    guess = CA_TYPE_UNKNOWN;
-    while (loop) {
-        (expr->data[expr->pos])
+    *guess         = GUESS_UNKNOWN;
+    char *start    = NULL;
+    int float_hint = 0;
+    char delimiter = '\0';
+    char curr_oper = '\0';
+    int i;
+
+    while (*c) {
+        switch (*c) {
+        case ' ': case '\n': case '\t':
+            if (*guess)
+                goto end;
+            goto next;
+
+        case '"':
+        case '\'':
+            delimiter = *c;
+            start = c;
+            while ((*++c) && *c != delimiter);
+            if (*c != delimiter) {
+                *guess = GUESS_ERROR;
+                goto end;
+            } else {
+                *guess = GUESS_STRING;
+                c++;
+                goto end;
+            }
+        }
+
+        if (CIS_SYMBOL(*c)) { // non-alphanumeric
+            if (*c == '.' && *guess == GUESS_INTEGER) { // Is this possibly a float?
+                float_hint = 1; // If so, store this "hinting"
+            } else if (*guess && *guess == GUESS_OPERATOR) {
+                // printf("enter");
+                for (i = 1; oper_list[curr_oper][i].extra_symbol; i++) {
+                    if (oper_list[curr_oper][i].extra_symbol == *c) {
+                        c++;
+                        // printf("ending second\n");
+                        *oper = &oper_list[curr_oper][i];
+                        goto end;
+                    }
+                    // printf("iter\n");
+                }
+                // printf("ending first\n");
+                *oper = &oper_list[curr_oper][0];
+                goto end;
+
+            } else if (*guess && *guess != GUESS_OPERATOR) { // Did we just read an entire chunk?
+                // printf("enter 2\n");
+                goto end;
+            } else if (!*guess) { // Is this the continuation or the start of a chunk?
+                // printf("enter else\n");
+                start = c;
+                curr_oper = *c;
+                /*
+                 * If this is only char, this is most definitely the operator
+                 * intended
+                 */
+                *oper = &oper_list[curr_oper][0]; 
+                *guess = GUESS_OPERATOR;
+            }
+        } else if (CIS_ALPHA(*c)) { // alphabetical
+            if (*guess && *guess != GUESS_NOUN)
+                goto end;
+            else if (!*guess)
+                start = c;
+            *guess = GUESS_NOUN;
+        } else if (CIS_NUMBER(*c)) {  // numeric
+            if (float_hint && *guess == GUESS_INTEGER) { // were we hinted about a float?
+                *guess = GUESS_FLOAT; // yeah, this is most likely a float
+            } else if (*guess && (*guess != GUESS_INTEGER && *guess != GUESS_FLOAT)) {
+                goto end;
+            } else if (*guess == GUESS_UNKNOWN) {
+                start = c;
+                *guess = GUESS_INTEGER;
+            }
+        }
+next:
+        c++;
     }
+
+end:
+    *size = (int) (c - start);
+    return start;
 }
 
 
@@ -71,31 +160,80 @@ ca_context *ca_context_init()
 }
 
 /**
- * \brief Evaluates a given expression.
+ * \brief Evaluates a given tokenised expression.
  * \param c The context.
  * \param s The expression.
  * \return An error code.
  */
-CaError ca_eval(CaContext *c, char *buf, int buf_size)
+int operate(EvalContext *e, Operator *oper)
 {
-    buf
-    for (int i = 0; i < buf_size; i++) {
-        switch (buf) {
-        case ' ':
-        case '\t':
-        case '\n':
-            if (c->scope != CA_SCOPE_STRING)
-                continue;
+    Operator *prev_oper;
+    int push_operator = 1;
 
-        case ')':
-            if (!c->level)
-                return CA_ERROR_EVAL_NO_OPENING_PARANTHESIS;
+    if (!oper) {
+        printf("oper end\n");
+        // End condition. Perform all operations left.
+        while (!stack_empty(e->os)) {
+            printf("oper top: %d\n", e->os.top);
+            stack_pop(&e->os, &oper);
+            operate_internal(e, oper);
+        }
+        printf("exiting\n");
+        return 0;
+    } else {
+        printf("oper enter: %d\n", oper->id);
+    }
 
-        case '('
-            c->level++;
+    // Closing Bracket?
+    if (oper->id == OPER_ID_NEST_CLOSE) {
+        printf("oper nest close\n");
+        // End condition of nested expression. Perform all operations left.
+        while (!stack_empty(e->os)) {
+            stack_pop(&e->os, &oper);
+            if (oper->id == OPER_ID_NEST) {
+                printf("bracket processed\n");
+                return 0;
+            }
+            operate_internal(e, oper);
         }
     }
 
-    if (c->level)
-        return CA_ERROR_EVAL_NO_CLOSING_PARANTHESIS;
+    // Opening Bracket?
+    if (oper->id == OPER_ID_NEST) {
+        int v = stack_push(&e->os, &oper);
+        printf("oper nest open\n");
+        stack_push(&e->oper_scope_offset, &e->os.top);
+        printf("oper top = %d\n",e->os.top);
+        stack_push(&e->num_scope_offset, &v);
+        return 0;
+    }
+
+    // Is there a previous operator?
+    if (oper_scope_size(e)) {
+        stack_peek(&e->os, &prev_oper);
+        printf("oper scope > 1 prev_oper = %d\n", prev_oper->id);
+    }
+
+    switch (oper_scope_size(e)) {
+    // Push the operator. We need to look for the next operator before dealing
+    // with this one.
+    case 0:
+        printf("oper scope == 0\n");
+        stack_push(&e->os, &oper);
+        break;
+
+    default:
+        printf("oper scope > 0\n");
+        // Does previous operator have a higher precendence? If so, operate it
+        // first
+        if (prev_oper->prec <= oper->prec) { // is the expression something like `1 * 2 +` ?
+            printf("prev_oper prec >= curr prec with oper_id = %d\n", prev_oper->id);
+            operate_internal(e, prev_oper);
+            stack_pop(&e->os, &prev_oper);
+        }
+        // Push the current operator
+        stack_push(&e->os, &oper);
+    }
+    
+    return 0;
 }
