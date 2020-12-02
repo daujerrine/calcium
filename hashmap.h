@@ -24,6 +24,15 @@
  * TODO: Implement entry relocation based on frequency of access
  */
 
+/*
+ * From what implementations of hash maps I have seen, resizing is always an
+ * O(n) operation for any hash function that takes the mod of the result with
+ * the size of the table. I have not yet found evidence otherwise. (CLRS 17.4)
+ *
+ * A new mem block is allocated when the load factor is hit, and elements are
+ * inserted one by one from the previous table into this new, larger block.
+ */
+
 #ifndef _CA_HASHMAP_H
 #define _CA_HASHMAP_H
 
@@ -32,14 +41,6 @@
 
 #include <string.h>
 #include <stdio.h>
-
- 
-/// Returns the offset of the hashtable array for a given letter. Returns -1 if
-/// letter is out of bounds.
-/// Refer to the implementation details for more information.
-#define CA_HASH_KEY_INDEX(x) (((x) >= 'A' && (x) <= 'Z') ? ((x) - 'A') : \
-                             ((x) >= 'a' && (x) <= 'z') ? ((x) - 'a') : \
-                             ((x) == '_') ? (Ca_HASH_SIZE - 1) : -1)
 
 /// The maximum size of a hashtable key.
 #define CA_HASH_KEY_SIZE 31
