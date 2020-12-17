@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef _CA_ERROR_H
-#define _CA_ERROR_H
+#ifndef CA_ERROR_H
+#define CA_ERROR_H
 
 /*
  * Actual errors always will have a less than 0 value
@@ -41,8 +41,8 @@ typedef enum CaError {
     CA_ERROR_STACK_FULL,
     CA_ERROR_STACK_EMPTY,
     CA_ERROR_EVAL,
-    CA_ERROR_EVAL_NO_OPENING_PARANTHESIS,
-    CA_ERROR_EVAL_NO_CLOSING_PARANTHESIS,
+    CA_ERROR_EVAL_SYNTAX_NO_OPENING_PARANTHESIS,
+    CA_ERROR_EVAL_SYNTAX_NO_CLOSING_PARANTHESIS,
     
     CA_ERROR_OK = 0,
 
@@ -50,5 +50,15 @@ typedef enum CaError {
     CA_ERROR_HASH_NEW = 0x1000,
     CA_ERROR_HASH_EXISTING,
 } CaError;
+
+#define ERRKEY(_code, _str) [_code + 0x1000] = _str
+
+char *ca_error_strings[] = {
+    ERRKEY(CA_ERROR_HASH_INVALID_KEY, "Erroneous hash key: %s"),
+    ERRKEY(CA_ERROR_HASH_NOTFOUND, "Key not found in table: %s"),
+    ERRKEY(CA_ERROR_STACK_FULL, "Stack Overflow"),
+    ERRKEY(CA_ERROR_STACK_EMPTY, "Stack Underflow"),
+    ERRKEY(CA_ERROR_EVAL, "Evaluation Error")
+};
 
 #endif
