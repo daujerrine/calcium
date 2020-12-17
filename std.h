@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef _CA_STD_H
-#define _CA_STD_H
+#ifndef CA_STD_H
+#define CA_STD_H
 
 #include "error.h"
 #include <math.h>
