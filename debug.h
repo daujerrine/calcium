@@ -17,8 +17,8 @@
  */
 
 
-#ifndef _CA_DEBUG_H
-#define _CA_DEBUG_H
+#ifndef CA_DEBUG_H
+#define CA_DEBUG_H
 
 #define DEBUG_TOGGLE
 
