@@ -19,12 +19,32 @@
 /**
  * \file interpreter.h
  * \author Anamitra Ghorui
- * \brief Calcium interpreter
+ * \brief Calcium interpreter program
  */
 
-#ifndef _CA_INTERPRETER_H
-#define _CA_INTERPRETER_H
+#ifndef CA_INTERPRETER_H
+#define CA_INTERPRETER_H
 
+#include "eval.h"
+#include "calcium.h"
 
+#define CA_INTERACTIVE_PROMPT_STR ":"
+#define CA_INTERACTIVE_BLOCK_STR "::"
+
+/**
+ * \brief Brings up an interactive interpreter
+ * \param f_in File Object used for input data
+ * \param f_out File Object used for output data
+ * \param f_err File Object used for error output
+ */
+void ca_start_interactive(FILE *f_in, FILE *f_out, FILE *f_err);
+
+/**
+ * \brief Brings up an interpreter
+ * \param f_in File Object used for input data
+ * \param f_out File Object used for output data
+ * \param f_err File Object used for error output
+ */
+void ca_start_interpreter(FILE *f_in, FILE *f_out, FILE *f_err);
 
 #endif

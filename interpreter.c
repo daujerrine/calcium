@@ -16,14 +16,9 @@
  * along with Calcium.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef _CA_INTERPRETER_H
-#define _CA_INTERPRETER_H
-
 /**
- * \file calcium.h
+ * \file interpreter.c
  * \author Anamitra Ghorui
- * \brief Calcium interface definitions
- *
+ * \brief Calcium interpreter program
  */
  
-#endif
