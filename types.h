@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef _CA_TYPES_H
-#define _CA_TYPES_H
+#ifndef CA_TYPES_H
+#define CA_TYPES_H
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -64,18 +64,24 @@ typedef enum CaType {
     CA_TYPE_OBJ
 } CaType;
 
+/// The type guessed by the tokeniser
+
 typedef enum CaGuess {
-    CA_GUESS_INT = 0,
-    CA_GUESS_REAL,
-    CA_GUESS_OPER,
-    CA_GUESS_WORD
-} CaVarGuess;
+    CA_GUESS_UNKNOWN = 0,
+    CA_GUESS_ERROR,
+    CA_GUESS_NEED_MORE_DATA,
+    CA_GUESS_INTEGER,
+    CA_GUESS_FLOAT,
+    CA_GUESS_OPERATOR,
+    CA_GUESS_NOUN,
+    CA_GUESS_STRING
+} CaGuess;
 
 typedef union CaValue {
-    CaInt i,
-    CaChar c,
-    CaReal f,
-    CaObjPtr *p
+    CaInt i;
+    CaChar c;
+    CaReal f;
+    CaObjPtr *p;
 } CaValue;
 
 typedef struct CaVar {
