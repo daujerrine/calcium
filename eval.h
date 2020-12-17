@@ -23,28 +23,17 @@
  *
  */
 
-#ifndef _CA_EVAL_H
-#define _CA_EVAL_H
+#ifndef CA_EVAL_H
+#define CA_EVAL_H
 
 #include "stack.h"
-#include "hash.h"
+#include "hashmap.h"
+#include "error.h"
+#include "types.h"
 
 #include <stdlib.h>
 #include <stdint.h>
 #include <ctype.h>
-
-/// The type guessed by the tokeniser
-
-typedef enum CaGuess {
-    GUESS_UNKNOWN = 0,
-    GUESS_ERROR,
-    GUESS_NEED_MORE_DATA,
-    GUESS_INTEGER,
-    GUESS_FLOAT,
-    GUESS_OPERATOR,
-    GUESS_NOUN,
-    GUESS_STRING
-} CaGuess;
 
 
 /// Contains the expression and the current location on the expression.
