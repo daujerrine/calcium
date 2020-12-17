@@ -29,14 +29,14 @@
 
 
 char *guess_strings[] = {
-    [GUESS_UNKNOWN]        = "unknown",
-    [GUESS_ERROR]          = "error",
-    [GUESS_NEED_MORE_DATA] = "incomplete",
-    [GUESS_INTEGER]        = "int",
-    [GUESS_FLOAT]          = "float",
-    [GUESS_OPERATOR]       = "oper",
-    [GUESS_NOUN]           = "noun",
-    [GUESS_STRING]         = "string"
+    [CA_GUESS_UNKNOWN]        = "unknown",
+    [CA_GUESS_ERROR]          = "error",
+    [CA_GUESS_NEED_MORE_DATA] = "incomplete",
+    [CA_GUESS_INTEGER]        = "int",
+    [CA_GUESS_FLOAT]          = "float",
+    [CA_GUESS_OPERATOR]       = "oper",
+    [CA_GUESS_NOUN]           = "noun",
+    [CA_GUESS_STRING]         = "string"
 };
 
 CaExpr *ca_tokenize(const char *data)
@@ -58,7 +58,7 @@ CaExpr *ca_tokenize(const char *data)
 */
 CaError *ca_next_token(CaExpr *expr, int *size, CaGuess *guess, CaOperator **oper)
 {
-    *guess         = GUESS_UNKNOWN;
+    *guess         = CA_GUESS_UNKNOWN;
     char *start    = NULL;
     int float_hint = 0;
     char delimiter = '\0';
@@ -78,19 +78,19 @@ CaError *ca_next_token(CaExpr *expr, int *size, CaGuess *guess, CaOperator **ope
             start = c;
             while ((*++c) && *c != delimiter);
             if (*c != delimiter) {
-                *guess = GUESS_ERROR;
+                *guess = CA_GUESS_ERROR;
                 goto end;
             } else {
-                *guess = GUESS_STRING;
+                *guess = CA_GUESS_STRING;
                 c++;
                 goto end;
             }
         }
 
         if (CIS_SYMBOL(*c)) { // non-alphanumeric
-            if (*c == '.' && *guess == GUESS_INTEGER) { // Is this possibly a float?
+            if (*c == '.' && *guess == CA_GUESS_INTEGER) { // Is this possibly a float?
                 float_hint = 1; // If so, store this "hinting"
-            } else if (*guess && *guess == GUESS_OPERATOR) {
+            } else if (*guess && *guess == CA_GUESS_OPERATOR) {
                 // printf("enter");
                 for (i = 1; oper_list[curr_oper][i].extra_symbol; i++) {
                     if (oper_list[curr_oper][i].extra_symbol == *c) {
@@ -105,7 +105,7 @@ CaError *ca_next_token(CaExpr *expr, int *size, CaGuess *guess, CaOperator **ope
                 *oper = &oper_list[curr_oper][0];
                 goto end;
 
-            } else if (*guess && *guess != GUESS_OPERATOR) { // Did we just read an entire chunk?
+            } else if (*guess && *guess != CA_GUESS_OPERATOR) { // Did we just read an entire chunk?
                 // printf("enter 2\n");
                 goto end;
             } else if (!*guess) { // Is this the continuation or the start of a chunk?
@@ -117,22 +117,22 @@ CaError *ca_next_token(CaExpr *expr, int *size, CaGuess *guess, CaOperator **ope
                  * intended
                  */
                 *oper = &oper_list[curr_oper][0]; 
-                *guess = GUESS_OPERATOR;
+                *guess = CA_GUESS_OPERATOR;
             }
         } else if (CIS_ALPHA(*c)) { // alphabetical
-            if (*guess && *guess != GUESS_NOUN)
+            if (*guess && *guess != CA_GUESS_NOUN)
                 goto end;
             else if (!*guess)
                 start = c;
-            *guess = GUESS_NOUN;
+            *guess = CA_GUESS_NOUN;
         } else if (CIS_NUMBER(*c)) {  // numeric
-            if (float_hint && *guess == GUESS_INTEGER) { // were we hinted about a float?
-                *guess = GUESS_FLOAT; // yeah, this is most likely a float
-            } else if (*guess && (*guess != GUESS_INTEGER && *guess != GUESS_FLOAT)) {
+            if (float_hint && *guess == CA_GUESS_INTEGER) { // were we hinted about a float?
+                *guess = CA_GUESS_FLOAT; // yeah, this is most likely a float
+            } else if (*guess && (*guess != CA_GUESS_INTEGER && *guess != CA_GUESS_FLOAT)) {
                 goto end;
-            } else if (*guess == GUESS_UNKNOWN) {
+            } else if (*guess == CA_GUESS_UNKNOWN) {
                 start = c;
-                *guess = GUESS_INTEGER;
+                *guess = CA_GUESS_INTEGER;
             }
         }
 next:
