@@ -16,8 +16,8 @@
  * along with Calcium.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef _CA_OPER_H
-#define _CA_OPER_H
+#ifndef CA_OPER_H
+#define CA_OPER_H
 
 #include "std.h"
 #include "types.h"
