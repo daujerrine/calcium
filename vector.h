@@ -22,8 +22,8 @@
  * \brief Vector array implementation
  */
 
-#ifndef _CA_VECTOR_H
-#define _CA_VECTOR_H
+#ifndef CA_VECTOR_H
+#define CA_VECTOR_H
 
 #include "mem.h"
 
