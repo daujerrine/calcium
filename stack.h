@@ -23,9 +23,12 @@
  *
  */
 
-#ifndef _CA_STACK_H
-#define _CA_STACK_H
- 
+#ifndef CA_STACK_H
+#define CA_STACK_H
+
+#include "types.h"
+#include "error.h"
+
 /// The maximum size of a stack.
 #define CA_STACK_SIZE 4096
 
