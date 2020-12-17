@@ -33,8 +33,8 @@
  * inserted one by one from the previous table into this new, larger block.
  */
 
-#ifndef _CA_HASHMAP_H
-#define _CA_HASHMAP_H
+#ifndef CA_HASHMAP_H
+#define CA_HASHMAP_H
 
 #include "types.h"
 #include "debug.h"
